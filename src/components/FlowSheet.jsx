@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DENOMS, MODE_LABEL, brandById, fmt, payModeOptions, priceOrder } from '../data';
+import { DENOMS, MODE_LABEL, brandById, fmt, offersForBrand, payModeOptions, priceOrder, promoValue, validatePromo } from '../data';
 import { ChevronDown, ChevronLeft, Close, Dots } from './icons';
 
 const TITLES = ['Voucher details', 'Payment', 'Review order'];
@@ -18,7 +18,7 @@ function Field({ label, error, children }) {
  * A WhatsApp Flow. Uses the components Flows really have: heading, body text,
  * radio buttons, dropdown, opt-in checkbox, text inputs and a footer button.
  */
-export default function FlowSheet({ brandId, promo, points, onClose, onSubmit }) {
+export default function FlowSheet({ brandId, promo: startPromo, points, onClose, onSubmit }) {
   const brand = brandById(brandId);
   const [step, setStep] = useState(0);
   const [denom, setDenom] = useState(DENOMS[0]);
@@ -29,7 +29,14 @@ export default function FlowSheet({ brandId, promo, points, onClose, onSubmit })
   const [message, setMessage] = useState('');
   const [payMode, setPayMode] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
+  const [picked, setPicked] = useState(startPromo || null); // offer chosen from the list
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
 
+  const subtotal = denom * qty;
+  const offers = offersForBrand(brandId);
+  // A selected offer only counts once the order meets its minimum
+  const promo = picked && subtotal >= (picked.min || 0) ? picked : null;
   const base = priceOrder({ denom, qty, promo, payMode: 'online', points });
   const options = payModeOptions(base.total, points);
   const mode = options.find((o) => o.id === payMode && o.ok) ? payMode : null;
@@ -39,8 +46,27 @@ export default function FlowSheet({ brandId, promo, points, onClose, onSubmit })
   const phoneOk = /^[6-9]\d{9}$/.test(phone);
   const detailsOk = !gift || (nameOk && phoneOk);
 
+  const pickOffer = (p) => {
+    setPicked(p);
+    setCode('');
+    setCodeError('');
+  };
+
   const next = () => {
-    if (step === 0) return detailsOk ? setStep(1) : setShowErrors(true);
+    if (step === 0) {
+      setShowErrors(true);
+      let chosen = promo;
+      if (code.trim()) {
+        const r = validatePromo(code, brandId, subtotal);
+        if (!r.ok) return setCodeError(r.error);
+        chosen = r.promo;
+        setPicked(r.promo);
+        setCode('');
+      }
+      if (!detailsOk) return undefined;
+      if (chosen !== promo) setPicked(chosen);
+      return setStep(1);
+    }
     if (step === 1) return mode ? setStep(2) : undefined;
     return onSubmit({
       brandId,
@@ -96,6 +122,46 @@ export default function FlowSheet({ brandId, promo, points, onClose, onSubmit })
                   <ChevronDown size={20} />
                 </span>
               </Field>
+
+              <div className="group" role="radiogroup" aria-label="Offers">
+                <div className="group-label">Offers on {brand.name}</div>
+                <button className="opt" role="radio" aria-checked={!promo} onClick={() => pickOffer(null)}>
+                  <span className="opt-txt"><b>No offer</b></span>
+                  <span className={'radio ' + (!promo ? 'on' : '')} />
+                </button>
+                {offers.map((o) => {
+                  const ok = subtotal >= (o.min || 0);
+                  return (
+                    <button
+                      key={o.code}
+                      className="opt"
+                      role="radio"
+                      aria-checked={promo?.code === o.code}
+                      disabled={!ok}
+                      onClick={() => pickOffer(o)}
+                    >
+                      <span className="opt-txt">
+                        <b>{o.code}: {o.label}</b>
+                        <small>{ok ? o.note : `Add ${fmt(o.min - subtotal)} more to use this`}</small>
+                      </span>
+                      <span className={'radio ' + (promo?.code === o.code ? 'on' : '')} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <Field label="Promo code" error={codeError}>
+                <input
+                  value={code}
+                  onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeError(''); }}
+                  placeholder="Have a code? Enter it here"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                />
+              </Field>
+              <p className="cap">
+                {promo ? `${promo.code} applied, you save ${fmt(promoValue(promo, subtotal))}.` : 'A code you enter is checked when you tap Continue.'}
+              </p>
 
               <label className="optin">
                 <input type="checkbox" checked={gift} onChange={(e) => setGift(e.target.checked)} />

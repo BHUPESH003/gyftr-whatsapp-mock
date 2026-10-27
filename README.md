@@ -1,6 +1,6 @@
 # Gyftr WhatsApp voucher journey (mock)
 
-A clickable React mock of the Gyftr voucher bot on WhatsApp. It shows the hybrid approach:
+A clickable React mock of the Gyftr bot on WhatsApp. It shows the hybrid approach:
 browse in chat, check out in a WhatsApp Flow, pay on a web page.
 
 ## Run it
@@ -37,6 +37,18 @@ Demo values: points OTP is `123456`. Any `name@bank` works as a UPI ID.
    - **UPI**: closes and a UPI payment request message lands in the chat.
    - **Card or netbanking**: goes straight to the bank or gateway page, then back to the chat.
 7. Voucher message with copyable codes. Track order and balance work at any time.
+
+## Promo codes and offers
+
+On the partner (brand) screen of the Flow, below denomination and quantity:
+
+- **Offers on this partner**: a radio list of applicable offers. Offers tied to another partner are hidden, and offers with a minimum order stay disabled until the order reaches it.
+- **Promo code**: a text field, checked when the customer taps Continue. Errors say why: not valid, only works on another partner, or how much more to add.
+- The total on the screen, the order message and the summary all show the discount.
+
+In menu mode the same rules apply through a "Have a promo code?" step (reply a code, OFFERS or SKIP). The marketing banner journey arrives with `WELCOME10` already applied.
+
+Codes live in `PROMOS` in `src/data.js`. Replace `validatePromo` with a call to Gyftr's real promo API.
 
 ## Where things live
 

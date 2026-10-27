@@ -13,8 +13,10 @@ import {
   fmt,
   newOrderId,
   newVoucherCode,
+  offersForBrand,
   payModeOptions,
   priceOrder,
+  validatePromo,
 } from './data';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -85,7 +87,7 @@ export function useBot({ entry, mode, startPoints }) {
 
   // ---------- main menu, balance, tracking ----------
   const mainMenu = (greet) => {
-    const hello = greet ? 'Hi! 👋 Welcome to Voucher Bot.\n' : '';
+    const hello = greet ? 'Hi! 👋 Welcome to Gyftr.\n' : '';
     if (isMenu()) {
       ask('menu_main', `${hello}Reply with a number:\n1. Buy a voucher\n2. Track an order\n3. Check points balance`);
       return;
@@ -444,7 +446,23 @@ export function useBot({ entry, mode, startPoints }) {
     ask('menu_denom', `Choose an amount:\n${DENOMS.map((d, i) => `${i + 1}. ${fmt(d)}`).join('\n')}`);
   const askQty = () => ask('menu_qty', 'How many vouchers? Reply with a number from 1 to 10.');
   const askRecipient = () => ask('menu_recipient', 'Who is this for?\n1. Me\n2. Someone else (gift)');
-  const activePromo = (d) => (st.current.promo && st.current.promo.brandId === d.brandId ? st.current.promo : null);
+  const activePromo = (d) =>
+    d.promo || (st.current.promo && st.current.promo.brandId === d.brandId ? st.current.promo : null);
+
+  // Menu mode: ask for a promo code unless one is already applied (for example from the banner)
+  const askPromo = () => {
+    const d = st.current.draft;
+    const existing = activePromo(d);
+    if (existing) {
+      say({ kind: 'text', text: `Offer ${existing.code} applied 🎉` });
+      return askRecipient();
+    }
+    const b = brandById(d.brandId);
+    return ask(
+      'menu_promo',
+      `Have a promo code for ${b.name}? Type it now.\nReply OFFERS to see available offers, or SKIP to continue without one.`
+    );
+  };
 
   const askPayMode = () => {
     const d = st.current.draft;
@@ -468,7 +486,7 @@ export function useBot({ entry, mode, startPoints }) {
       `For: ${d.gift ? `${d.gift.name} (+91 ${d.gift.phone})` : 'Me'}`,
       `Payment: ${MODE_LABEL[d.payMode]}`,
     ];
-    if (promo) lines.push(`Offer ${promo.code}: -${fmt(price.promoDiscount)}`);
+    if (promo && price.promoDiscount) lines.push(`Offer ${promo.code}: -${fmt(price.promoDiscount)}`);
     if (price.pointsUsed) lines.push(`Points used: ${fmt(price.pointsUsed)}`);
     if (price.onlineDue) lines.push(`To pay online: ${fmt(price.onlineDue)}`);
     lines.push(`Total: ${fmt(price.total)}`, '', '1. Confirm', '2. Cancel');
@@ -511,7 +529,19 @@ export function useBot({ entry, mode, startPoints }) {
       case 'menu_qty':
         if (!(n >= 1 && n <= 10)) return bad();
         s.draft.qty = n;
+        return askPromo();
+      case 'menu_promo': {
+        if (/^skip$/i.test(t)) return askRecipient();
+        if (/^offers?$/i.test(t)) {
+          const lines = offersForBrand(s.draft.brandId).map((o) => `${o.code}: ${o.label}. ${o.note}`);
+          return say({ kind: 'text', text: `Available offers:\n${lines.join('\n')}\n\n${s.lastPrompt}` });
+        }
+        const r = validatePromo(t, s.draft.brandId, s.draft.denom * s.draft.qty);
+        if (!r.ok) return say({ kind: 'text', text: `${r.error}. Try another code, or reply SKIP.` });
+        s.draft.promo = r.promo;
+        say({ kind: 'text', text: `${r.promo.code} applied 🎉 You save ${fmt(priceOrder({ denom: s.draft.denom, qty: s.draft.qty, promo: r.promo, payMode: 'online', points: 0 }).promoDiscount)}.` });
         return askRecipient();
+      }
       case 'menu_recipient':
         if (n === 1) {
           s.draft.gift = null;

@@ -24,14 +24,37 @@ export const BRANDS = [
 
 export const DENOMS = [250, 500, 1000, 2000, 5000];
 
-// Marketing banner journey: opens straight into Brand A with this offer applied.
-export const PROMO = {
-  code: 'WELCOME10',
-  pct: 10,
-  cap: 100,
-  brandId: 'a',
-  label: '10% off (up to ₹100)',
+// Promo codes. A promo with a brandId only works on that partner, otherwise it works on any.
+export const PROMOS = [
+  { code: 'WELCOME10', label: '10% off (up to ₹100)', note: 'First order on Brand A', pct: 10, cap: 100, min: 0, brandId: 'a' },
+  { code: 'GIFT50', label: '₹50 off', note: 'On orders of ₹500 and above', flat: 50, min: 500, brandId: null },
+  { code: 'TREAT5', label: '5% off (up to ₹75)', note: 'On any partner', pct: 5, cap: 75, min: 0, brandId: null },
+  { code: 'TRAVEL15', label: '15% off (up to ₹300)', note: 'Travel partners, ₹1,000 and above', pct: 15, cap: 300, min: 1000, brandId: 'g' },
+];
+
+// Marketing banner journey: opens straight into Brand A with this code applied.
+export const PROMO = PROMOS[0];
+
+export const promoValue = (promo, subtotal) => {
+  if (!promo || subtotal < (promo.min || 0)) return 0;
+  return promo.flat ?? Math.min(Math.round((subtotal * promo.pct) / 100), promo.cap);
 };
+
+export const offersForBrand = (brandId) => PROMOS.filter((p) => !p.brandId || p.brandId === brandId);
+
+export function validatePromo(rawCode, brandId, subtotal) {
+  const code = String(rawCode || '').trim().toUpperCase();
+  if (!code) return { ok: false, error: 'Enter a promo code' };
+  const promo = PROMOS.find((p) => p.code === code);
+  if (!promo) return { ok: false, error: 'This code is not valid' };
+  if (promo.brandId && promo.brandId !== brandId) {
+    return { ok: false, error: `${promo.code} only works on ${brandById(promo.brandId).name}` };
+  }
+  if (subtotal < (promo.min || 0)) {
+    return { ok: false, error: `Add ${fmt(promo.min - subtotal)} more to use ${promo.code}` };
+  }
+  return { ok: true, promo };
+}
 
 // Offers shown on the payment web view. "instant" lowers the amount charged,
 // "cashback" is credited later.
@@ -58,7 +81,7 @@ export const brandById = (id) => BRANDS.find((b) => b.id === id);
 
 export function priceOrder({ denom, qty, promo, payMode, points }) {
   const subtotal = denom * qty;
-  const promoDiscount = promo ? Math.min(Math.round((subtotal * promo.pct) / 100), promo.cap) : 0;
+  const promoDiscount = promoValue(promo, subtotal);
   const total = subtotal - promoDiscount;
   let pointsUsed = 0;
   if (payMode === 'points') pointsUsed = total;

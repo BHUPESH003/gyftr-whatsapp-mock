@@ -6,7 +6,7 @@ import FlowSheet from './FlowSheet';
 import ListSheet from './ListSheet';
 import UpiApp from './UpiApp';
 import WebView from './WebView';
-import { BatteryIcon, ChevronLeft, Gift, Phone, SignalIcon, Verified, WifiIcon } from './icons';
+import { BatteryIcon, ChevronLeft, Phone, SignalIcon, Verified, WifiIcon } from './icons';
 
 function StatusBar() {
   return (
@@ -36,9 +36,9 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         {device && <StatusBar />}
         <header className="wa-head">
           <span className="back"><ChevronLeft size={30} /></span>
-          <span className="avatar"><Gift size={20} /></span>
+          <span className="avatar">G</span>
           <div className="who">
-            <b>Voucher Bot <Verified size={15} /></b>
+            <b>Gyftr <Verified size={15} /></b>
             <small className={bot.typing ? 'typing' : ''}>{bot.typing ? 'typing…' : 'Business Account'}</small>
           </div>
           <span className="head-ico"><Phone size={24} /></span>
