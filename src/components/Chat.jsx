@@ -1,299 +1,320 @@
-import { useEffect, useRef, useState } from 'react';
-import { MODE_LABEL, STATUS_LABEL, brandById, fmt, timeline } from '../data';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { MODE_LABEL, STATUS_LABEL, brandById, fmt } from '../data';
+import { Camera, CopyIcon, External, FlowIcon, ListIcon, Lock, Mic, Plus, Reply, Send, Sticker, Ticks } from './icons';
 
-const Time = ({ m }) => <span className="time">{m.time}</span>;
-
-function Pills({ buttons, onAct }) {
+/* WhatsApp text formatting: *bold* and ```monospace``` */
+function Rich({ text }) {
+  const parts = String(text).split(/(\*[^*\n]+\*|```[^`]+```)/g);
   return (
-    <div className="pills">
-      {buttons.map((b) => (
-        <button key={b.id} className="pill" onClick={() => onAct(b.id, b.label)}>
-          {b.label}
-        </button>
-      ))}
+    <>
+      {parts.map((p, i) => {
+        if (p.startsWith('```')) return <code key={i}>{p.slice(3, -3)}</code>;
+        if (p.startsWith('*') && p.endsWith('*') && p.length > 2) return <b key={i}>{p.slice(1, -1)}</b>;
+        return <Fragment key={i}>{p}</Fragment>;
+      })}
+    </>
+  );
+}
+
+function Meta({ m }) {
+  return (
+    <span className="meta">
+      {m.time}
+      {m.from === 'user' && <Ticks />}
+    </span>
+  );
+}
+
+function Bubble({ m, tail, children, className = '' }) {
+  const out = m.from === 'user';
+  return (
+    <div className={`bubble ${out ? 'out' : 'in'} ${tail ? 'tail' : ''} ${className}`}>
+      {children}
+      <Meta m={m} />
     </div>
   );
 }
 
-function Row({ k, v, good }) {
-  return (
-    <div className="line">
-      <span>{k}</span>
-      <b className={good ? 'good' : ''}>{v}</b>
-    </div>
-  );
-}
+const ICONS = { reply: Reply, link: External, list: ListIcon, flow: FlowIcon, copy: CopyIcon };
 
-function OrderCard({ order }) {
-  const b = brandById(order.brandId);
+function WBtn({ icon = 'reply', onClick, children, disabled }) {
+  const I = ICONS[icon];
   return (
-    <div className="card">
-      <div className="card-head">
-        <span className="brand-ico sm" style={{ background: b.tint }}>{b.icon}</span>
-        <div>
-          <b>{b.name}</b>
-          <small>Gift voucher, {order.id}</small>
-        </div>
-      </div>
-      <Row k="Amount" v={fmt(order.denom)} />
-      <Row k="Quantity" v={order.qty} />
-      <Row k="For" v={order.gift ? `${order.gift.name}, +91 ${order.gift.phone}` : 'Me'} />
-      {order.message && <Row k="Message" v={order.message} />}
-      <Row k="Payment" v={MODE_LABEL[order.payMode]} />
-      {order.promoDiscount > 0 && <Row k={`Offer ${order.promo.code}`} v={'-' + fmt(order.promoDiscount)} good />}
-      {order.pointsUsed > 0 && <Row k="Points" v={fmt(order.pointsUsed)} />}
-      {order.onlineDue > 0 && <Row k="To pay online" v={fmt(order.onlineDue)} />}
-      <div className="total">
-        <span>Total amount</span>
-        <b>{fmt(order.total)}</b>
-      </div>
-    </div>
-  );
-}
-
-function CopyBtn({ code }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      className="copy"
-      onClick={() => {
-        navigator.clipboard?.writeText(code);
-        setDone(true);
-        setTimeout(() => setDone(false), 1500);
-      }}
-    >
-      {done ? 'Copied' : 'Copy'}
+    <button className="wbtn" onClick={onClick} disabled={disabled}>
+      <I size={18} /> <span>{children}</span>
     </button>
   );
 }
 
-function Message({ m, orders, onAct, onOpenFlow, onOpenPay, onUpiResult }) {
-  const mine = m.from === 'user';
+function Buttons({ buttons, onAct }) {
+  return buttons.map((b) => (
+    <WBtn key={b.id} onClick={() => onAct(b.id, b.label)}>
+      {b.label}
+    </WBtn>
+  ));
+}
+
+function CopyBtn({ codes }) {
+  const [done, setDone] = useState(false);
+  return (
+    <WBtn
+      icon="copy"
+      onClick={() => {
+        try {
+          navigator.clipboard?.writeText(codes.join('\n'));
+        } catch {
+          /* clipboard can be blocked in some contexts */
+        }
+        setDone(true);
+        setTimeout(() => setDone(false), 1500);
+      }}
+    >
+      {done ? 'Copied' : codes.length > 1 ? 'Copy codes' : 'Copy code'}
+    </WBtn>
+  );
+}
+
+// rows: [text] for a plain line, [label, value] for a "*label:* value" line
+function Lines({ rows }) {
+  return rows.filter(Boolean).map(([k, v], i) =>
+    v === undefined ? (
+      <div key={i} className="ln"><Rich text={k || '\u00a0'} /></div>
+    ) : (
+      <div key={i} className="ln">
+        <b>{k}:</b> <Rich text={v} />
+      </div>
+    )
+  );
+}
+
+const forWhom = (o) => (o.gift ? `${o.gift.name} (+91 ${o.gift.phone})` : 'Me');
+
+function Message({ m, tail, orders, a }) {
   const order = m.orderId ? orders.find((o) => o.id === m.orderId) : null;
 
   switch (m.kind) {
     case 'text':
       return (
-        <div className={'bubble ' + (mine ? 'mine' : '')}>
-          <p>{m.text}</p>
-          <Time m={m} />
+        <div className="stack">
+          <Bubble m={m} tail={tail}>
+            <span className="txt"><Rich text={m.text} /></span>
+          </Bubble>
         </div>
       );
 
     case 'flowReply':
       return (
-        <div className="bubble mine flow-reply">
-          <b>🧾 {m.title}</b>
-          {m.lines.map((l) => <p key={l}>{l}</p>)}
-          <Time m={m} />
+        <div className="stack">
+          <Bubble m={m} tail={tail}>
+            <div className="ln"><b>{m.title}</b></div>
+            {m.lines.map((l) => <div key={l} className="ln">{l}</div>)}
+          </Bubble>
         </div>
       );
 
     case 'buttons':
       return (
-        <>
-          <div className="bubble">
-            <p>{m.text}</p>
-            <Time m={m} />
-          </div>
-          <Pills buttons={m.buttons} onAct={onAct} />
-        </>
+        <div className="stack">
+          <Bubble m={m} tail={tail}><span className="txt"><Rich text={m.text} /></span></Bubble>
+          <Buttons buttons={m.buttons} onAct={a.onAct} />
+        </div>
       );
 
     case 'list':
       return (
-        <div className="bubble wide">
-          <p>{m.text}</p>
-          <div className="rows">
-            {m.rows.map((r) => (
-              <button key={r.id} className="row" onClick={() => onAct(r.id, r.label)}>
-                <span className="row-ico">{r.icon}</span>
-                <span className="row-txt">
-                  {r.label}
-                  {r.sub && <small>{r.sub}</small>}
-                </span>
-                <span className="chev">›</span>
-              </button>
-            ))}
-          </div>
-          <Time m={m} />
+        <div className="stack">
+          <Bubble m={m} tail={tail}><span className="txt"><Rich text={m.text} /></span></Bubble>
+          <WBtn icon="list" onClick={() => a.onOpenList(m)}>{m.title}</WBtn>
         </div>
       );
 
     case 'carousel':
       return (
-        <>
-          <div className="bubble">
-            <p>{m.text}</p>
-            <Time m={m} />
-          </div>
-          <div className="carousel">
+        <div className="stack wide">
+          <Bubble m={m} tail={tail}><span className="txt"><Rich text={m.text} /></span></Bubble>
+          <div className="cards">
             {m.cards.map((c) => (
-              <div key={c.id} className="cardlet">
-                <span className="brand-ico" style={{ background: c.tint }}>{c.icon}</span>
-                <b>{c.name}</b>
-                <button className="cta-btn" onClick={() => onAct('view:' + c.id, c.name)}>View</button>
+              <div key={c.id} className="wcard">
+                <div className="wcard-img" style={{ background: c.tint }}>
+                  <span>{c.icon}</span>
+                </div>
+                <div className="wcard-body">
+                  <b>{c.name}</b>
+                  <span>Gift voucher</span>
+                </div>
+                <WBtn onClick={() => a.onAct('view:' + c.id, c.name)}>View</WBtn>
               </div>
             ))}
           </div>
-        </>
+        </div>
       );
 
     case 'banner':
       return (
-        <div className="bubble banner">
-          <div className="banner-art">
-            <span>🎁</span>
-            <b>{m.headline}</b>
+        <div className="stack">
+          <div className="bubble in tail media">
+            <div className="banner-art">
+              <span>🎁</span>
+              <b>{m.headline}</b>
+            </div>
+            <span className="txt pad"><Rich text={m.body} /></span>
+            <span className="foot pad">Sent by Gyftr. Reply STOP to opt out.</span>
+            <Meta m={m} />
           </div>
-          <p>{m.body}</p>
-          <small className="sponsored">Marketing message from Gyftr</small>
-          <button className="cta-btn full" onClick={() => onAct('claim', m.label)}>{m.label}</button>
-          <Time m={m} />
+          <WBtn onClick={() => a.onAct('claim', m.label)}>{m.label}</WBtn>
         </div>
       );
 
     case 'flowButton':
       return (
-        <div className="bubble">
-          <p>{m.text}</p>
-          <Time m={m} />
-          <button className="cta-btn full flow" onClick={() => onOpenFlow(m.brandId)}>
-            <span>🧾</span> {m.label}
-          </button>
+        <div className="stack">
+          <Bubble m={m} tail={tail}><span className="txt"><Rich text={m.text} /></span></Bubble>
+          <WBtn icon="flow" onClick={() => a.onOpenFlow(m.brandId)}>{m.label}</WBtn>
         </div>
       );
 
     case 'cta':
       return (
-        <div className="bubble">
-          <p>{m.text}</p>
-          {m.linkText && (
-            <button className="link" onClick={() => onOpenPay(m.orderId)}>{m.linkText}</button>
-          )}
-          <Time m={m} />
-          {m.label && (
-            <button className="cta-btn full flow" onClick={() => onOpenPay(m.orderId)}>
-              <span>↗</span> {m.label}
-            </button>
-          )}
+        <div className="stack">
+          <Bubble m={m} tail={tail}>
+            <span className="txt">
+              <Rich text={m.text} />
+              {m.linkText && (
+                <>
+                  {'\n'}
+                  <button className="inline-link" onClick={() => a.onOpenPay(m.orderId)}>{m.linkText}</button>
+                </>
+              )}
+            </span>
+          </Bubble>
+          {m.label && <WBtn icon="link" onClick={() => a.onOpenPay(m.orderId)}>{m.label}</WBtn>}
         </div>
       );
 
-    case 'order':
-      return order ? (
-        <>
-          <div className="bubble wide">
-            <p>{m.text}</p>
-            <OrderCard order={order} />
-            <p className="note">{m.note}</p>
-            <Time m={m} />
-          </div>
-          {order.status === 'pending_payment' && <Pills buttons={m.buttons} onAct={onAct} />}
-        </>
-      ) : null;
+    case 'order': {
+      if (!order) return null;
+      const b = brandById(order.brandId);
+      return (
+        <div className="stack">
+          <Bubble m={m} tail={tail}>
+            <Lines
+              rows={[
+                ['*Voucher order created!* 🎉'],
+                ['Here are the details:'],
+                [''],
+                ['Order', order.id],
+                ['Voucher', `${b.name}, ${fmt(order.denom)} × ${order.qty}`],
+                ['For', forWhom(order)],
+                order.message ? ['Message', order.message] : null,
+                ['Payment', MODE_LABEL[order.payMode]],
+                order.promoDiscount > 0 ? [`Offer ${order.promo.code}`, '-' + fmt(order.promoDiscount)] : null,
+                order.pointsUsed > 0 ? ['Points', fmt(order.pointsUsed)] : null,
+                order.onlineDue > 0 ? ['To pay online', fmt(order.onlineDue)] : null,
+                ['Total', fmt(order.total)],
+                [''],
+                [m.note],
+              ]}
+            />
+          </Bubble>
+          {order.status === 'pending_payment' && <Buttons buttons={m.buttons} onAct={a.onAct} />}
+        </div>
+      );
+    }
 
-    case 'orderStatus':
-      return order ? (
-        <>
-          <div className="bubble wide">
-            <b>
-              Order {order.id}, {STATUS_LABEL[order.status]}
-            </b>
-            <p>
-              {brandById(order.brandId).name}, {fmt(order.denom)} × {order.qty}
-            </p>
-            <ol className="tl">
-              {timeline(order.status).map((s) => (
-                <li key={s.label} className={s.done ? 'done' : ''}>{s.label}</li>
-              ))}
-              {order.status === 'cancelled' && <li className="bad">Order cancelled</li>}
-            </ol>
-            {order.codes?.length > 0 && (
-              <div className="codes">
-                {order.codes.map((c) => (
-                  <div key={c} className="code"><code>{c}</code><CopyBtn code={c} /></div>
-                ))}
-              </div>
-            )}
-            <Time m={m} />
-          </div>
+    case 'orderStatus': {
+      if (!order) return null;
+      const b = brandById(order.brandId);
+      const steps = [
+        ['Order placed', true],
+        ['Payment received', order.status === 'processing' || order.status === 'delivered'],
+        ['Voucher delivered', order.status === 'delivered'],
+      ];
+      return (
+        <div className="stack">
+          <Bubble m={m} tail={tail}>
+            <Lines
+              rows={[
+                [`*Order ${order.id}*`],
+                [`${b.name}, ${fmt(order.denom)} × ${order.qty}`],
+                [`Status: ${STATUS_LABEL[order.status]}`],
+                [''],
+                ...steps.map(([label, done]) => [`${done ? '✅' : '⏳'} ${label}`]),
+                order.status === 'cancelled' ? ['❌ Order cancelled'] : null,
+                order.codes?.length ? [''] : null,
+                ...(order.codes || []).map((c) => [`\`\`\`${c}\`\`\``]),
+              ]}
+            />
+          </Bubble>
           {order.status === 'pending_payment' && (
-            <Pills buttons={[{ id: 'pay:' + order.id, label: 'Pay now' }]} onAct={onAct} />
+            <Buttons buttons={[{ id: 'pay:' + order.id, label: 'Pay now' }]} onAct={a.onAct} />
           )}
-        </>
-      ) : null;
+          {order.codes?.length > 0 && <CopyBtn codes={order.codes} />}
+        </div>
+      );
+    }
 
     case 'balance':
       return (
-        <>
-          <div className="bubble wide">
-            <p>Your points balance</p>
-            <div className="balance">
-              <b>{m.points.toLocaleString('en-IN')}</b>
-              <span>pts</span>
-            </div>
-            <p className="note">Worth {fmt(m.points)}. Use points when you pay for a voucher.</p>
-            <Time m={m} />
-          </div>
-          <Pills buttons={m.buttons} onAct={onAct} />
-        </>
+        <div className="stack">
+          <Bubble m={m} tail={tail}>
+            <Lines
+              rows={[
+                ['*Points balance*'],
+                [`${m.points.toLocaleString('en-IN')} pts (worth ${fmt(m.points)})`],
+                [''],
+                ['Use points when you pay for a voucher.'],
+              ]}
+            />
+          </Bubble>
+          <Buttons buttons={m.buttons} onAct={a.onAct} />
+        </div>
       );
 
     case 'voucher': {
       if (!order) return null;
       const b = brandById(order.brandId);
       return (
-        <div className="bubble wide">
-          <p>Your voucher is ready! 🎉</p>
-          <div className="card voucher">
-            <div className="card-head">
-              <span className="brand-ico sm" style={{ background: b.tint }}>{b.icon}</span>
-              <div>
-                <b>{b.name}</b>
-                <small>{fmt(order.denom)} gift voucher</small>
-              </div>
-            </div>
-            {m.codes.map((c) => (
-              <div key={c} className="code"><code>{c}</code><CopyBtn code={c} /></div>
-            ))}
-            <small className="note">
-              {order.gift ? `Sent to ${order.gift.name} (+91 ${order.gift.phone}). ` : 'Also sent by SMS and email. '}
-              Valid for 12 months. Terms apply.
-            </small>
-          </div>
-          <Time m={m} />
+        <div className="stack">
+          <Bubble m={m} tail={tail}>
+            <Lines
+              rows={[
+                ['*Your voucher is ready!* 🎉'],
+                [`${b.name} gift voucher, ${fmt(order.denom)}`],
+                [''],
+                ...m.codes.map((c, i) => [m.codes.length > 1 ? `Code ${i + 1}` : 'Code', `\`\`\`${c}\`\`\``]),
+                [''],
+                [`${order.gift ? `Sent to ${order.gift.name} (+91 ${order.gift.phone}).` : 'Also sent by SMS and email.'} Valid for 12 months. Terms apply.`],
+              ]}
+            />
+          </Bubble>
+          <CopyBtn codes={m.codes} />
         </div>
       );
     }
 
     case 'upiRequest':
       return (
-        <div className="bubble wide">
-          <b>UPI payment request</b>
-          <div className="card">
-            <Row k="Amount" v={fmt(m.amount)} />
-            <Row k="To pay from" v={m.vpa} />
-            {m.saved > 0 && (
-              <Row k={m.offerKind === 'cashback' ? 'Cashback later' : 'Offer saving'} v={fmt(m.saved)} good />
-            )}
-            <p className={'upi-state ' + m.state}>
-              {m.state === 'pending' && 'Open your UPI app and approve the request. It expires in 5 minutes.'}
-              {m.state === 'approved' && 'Approved ✅'}
-              {m.state === 'declined' && 'Declined ✕'}
-            </p>
-          </div>
-          {m.state === 'pending' && (
-            <div className="demo">
-              <small>Demo only: act as the customer</small>
-              <div>
-                <button onClick={() => onUpiResult(m.orderId, true)}>Approve in UPI app</button>
-                <button onClick={() => onUpiResult(m.orderId, false)}>Decline</button>
-                <button onClick={() => onOpenPay(m.orderId)}>Change method</button>
-              </div>
-            </div>
-          )}
-          <Time m={m} />
+        <div className="stack">
+          <Bubble m={m} tail={tail}>
+            <Lines
+              rows={[
+                ['*UPI payment request sent*'],
+                [''],
+                ['Amount', fmt(m.amount)],
+                ['From', m.vpa],
+                m.saved > 0 ? [m.offerKind === 'cashback' ? 'Cashback later' : 'Offer saving', fmt(m.saved)] : null,
+                [''],
+                [
+                  m.state === 'pending'
+                    ? 'Open your UPI app and approve the request within 5 minutes.'
+                    : m.state === 'approved'
+                    ? '✅ Approved'
+                    : '❌ Declined',
+                ],
+              ]}
+            />
+          </Bubble>
+          {m.state === 'pending' && <WBtn onClick={() => a.onOpenPay(m.orderId)}>Change payment method</WBtn>}
         </div>
       );
 
@@ -302,53 +323,66 @@ function Message({ m, orders, onAct, onOpenFlow, onOpenPay, onUpiResult }) {
   }
 }
 
-export default function Chat({ messages, typing, orders, onAct, onOpenFlow, onOpenPay, onUpiResult, onText }) {
-  const [draft, setDraft] = useState('');
-  const end = useRef(null);
+export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList }) {
+  const ref = useRef(null);
+  const a = { onAct, onOpenFlow, onOpenPay, onOpenList };
 
+  // Scroll only the chat itself. scrollIntoView would also scroll the 3D layer's ancestors.
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages, typing]);
+    const el = ref.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
 
-  const send = (e) => {
+  return (
+    <div className="chat" ref={ref}>
+      <div className="chip-date">Today</div>
+      <div className="chip-note e2e">
+        <Lock size={12} />
+        <span>
+          Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or
+          listen to them. Tap to learn more.
+        </span>
+      </div>
+      <div className="chip-note biz">
+        This business uses a secure service from Meta to manage this chat. Tap to learn more.
+      </div>
+      {messages.map((m, i) => {
+        const prev = messages[i - 1];
+        const tail = !prev || prev.from !== m.from;
+        return (
+          <div key={m.id} className={`msg ${m.from === 'user' ? 'out' : 'in'} ${tail ? 'first' : ''} ${m.kind === 'carousel' ? 'wide' : ''}`}>
+            <Message m={m} tail={tail} orders={orders} a={a} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function Composer({ onText }) {
+  const [draft, setDraft] = useState('');
+  const submit = (e) => {
     e.preventDefault();
     if (!draft.trim()) return;
     onText(draft);
     setDraft('');
   };
-
+  const has = draft.trim().length > 0;
   return (
-    <>
-      <div className="chat">
-        {messages.map((m) => (
-          <div key={m.id} className={'msg ' + (m.from === 'user' ? 'out' : 'in')}>
-            <Message
-              m={m}
-              orders={orders}
-              onAct={onAct}
-              onOpenFlow={onOpenFlow}
-              onOpenPay={onOpenPay}
-              onUpiResult={onUpiResult}
-            />
-          </div>
-        ))}
-        {typing && (
-          <div className="msg in">
-            <div className="bubble typing"><i /><i /><i /></div>
-          </div>
-        )}
-        <div ref={end} />
+    <form className="composer" onSubmit={submit}>
+      <button type="button" className="c-ico" aria-label="Attach"><Plus size={28} /></button>
+      <div className="field">
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Message" aria-label="Message" />
+        <Sticker size={24} />
       </div>
-      <form className="composer" onSubmit={send}>
-        <div className="field">
-          <span>☺</span>
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Message" />
-          <span>📎</span>
-        </div>
-        <button className="send" type="submit" aria-label="Send">
-          {draft.trim() ? '➤' : '🎤'}
-        </button>
-      </form>
-    </>
+      {has ? (
+        <button type="submit" className="send" aria-label="Send"><Send size={20} /></button>
+      ) : (
+        <>
+          <button type="button" className="c-ico" aria-label="Camera"><Camera size={26} /></button>
+          <button type="button" className="c-ico" aria-label="Voice message"><Mic size={26} /></button>
+        </>
+      )}
+    </form>
   );
 }

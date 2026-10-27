@@ -1,21 +1,23 @@
 import { useState } from 'react';
 import { DENOMS, MODE_LABEL, brandById, fmt, payModeOptions, priceOrder } from '../data';
+import { ChevronDown, ChevronLeft, Close, Dots } from './icons';
 
-const STEPS = ['Details', 'Payment', 'Summary'];
+const TITLES = ['Voucher details', 'Payment', 'Review order'];
 
-function Steps({ current }) {
+function Field({ label, error, children }) {
   return (
-    <div className="steps">
-      {STEPS.map((label, i) => (
-        <div key={label} className={'step ' + (i < current ? 'done' : i === current ? 'now' : '')}>
-          <span className="dot">{i < current ? '✓' : ''}</span>
-          <span className="lbl">{label}</span>
-        </div>
-      ))}
-    </div>
+    <label className={'ofield ' + (error ? 'bad' : '')}>
+      <span className="ofield-label">{label}</span>
+      {children}
+      {error && <em>{error}</em>}
+    </label>
   );
 }
 
+/**
+ * A WhatsApp Flow. Uses the components Flows really have: heading, body text,
+ * radio buttons, dropdown, opt-in checkbox, text inputs and a footer button.
+ */
 export default function FlowSheet({ brandId, promo, points, onClose, onSubmit }) {
   const brand = brandById(brandId);
   const [step, setStep] = useState(0);
@@ -38,14 +40,8 @@ export default function FlowSheet({ brandId, promo, points, onClose, onSubmit })
   const detailsOk = !gift || (nameOk && phoneOk);
 
   const next = () => {
-    if (step === 0) {
-      if (!detailsOk) return setShowErrors(true);
-      return setStep(1);
-    }
-    if (step === 1) {
-      if (!mode) return;
-      return setStep(2);
-    }
+    if (step === 0) return detailsOk ? setStep(1) : setShowErrors(true);
+    if (step === 1) return mode ? setStep(2) : undefined;
     return onSubmit({
       brandId,
       denom,
@@ -56,125 +52,107 @@ export default function FlowSheet({ brandId, promo, points, onClose, onSubmit })
       promo,
     });
   };
-
   const back = () => (step === 0 ? onClose() : setStep(step - 1));
-  const cta = step === 2 ? 'Confirm order' : 'Continue';
   const disabled = step === 1 && !mode;
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+    <div className="scrim" onClick={onClose}>
+      <div className="sheet flow" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Buy Voucher">
         <div className="grab" />
         <div className="sheet-head">
-          <button className="icon-btn" onClick={back} aria-label={step === 0 ? 'Close' : 'Back'}>
-            {step === 0 ? '✕' : '‹'}
+          <button className="hbtn" onClick={back} aria-label={step === 0 ? 'Close' : 'Back'}>
+            {step === 0 ? <Close size={22} /> : <ChevronLeft size={24} />}
           </button>
-          <b>Buy Voucher</b>
-          <span className="icon-btn muted">⋮</span>
+          <b>{TITLES[step]}</b>
+          <span className="hbtn muted"><Dots size={22} /></span>
         </div>
-        <Steps current={step} />
 
-        <div className="sheet-body">
-          <div className="brand-row">
-            <span className="brand-ico" style={{ background: brand.tint }}>{brand.icon}</span>
-            <div>
-              <b>{brand.name}</b>
-              <small>Gift voucher</small>
-            </div>
-            {promo && <span className="promo-chip">{promo.code} applied</span>}
-          </div>
-
+        <div className="sheet-body flow-body">
           {step === 0 && (
             <>
-              <h4>Select denomination</h4>
-              <div className="chips">
+              <div className="flow-img" style={{ background: brand.tint }}><span>{brand.icon}</span></div>
+              <h2>{brand.name} gift voucher</h2>
+              {promo ? (
+                <p className="cap good">{promo.code} applied: {promo.label}</p>
+              ) : (
+                <p className="cap">Valid for 12 months. Delivered instantly on WhatsApp.</p>
+              )}
+
+              <div className="group" role="radiogroup" aria-label="Denomination">
+                <div className="group-label">Denomination</div>
                 {DENOMS.map((d) => (
-                  <button key={d} className={'chip ' + (d === denom ? 'on' : '')} onClick={() => setDenom(d)}>
-                    {fmt(d)}
+                  <button key={d} className="opt" role="radio" aria-checked={d === denom} onClick={() => setDenom(d)}>
+                    <span className="opt-txt"><b>{fmt(d)}</b></span>
+                    <span className={'radio ' + (d === denom ? 'on' : '')} />
                   </button>
                 ))}
               </div>
 
-              <h4>Quantity</h4>
-              <div className="stepper">
-                <button onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Fewer">−</button>
-                <span>{qty}</span>
-                <button onClick={() => setQty(Math.min(10, qty + 1))} aria-label="More">+</button>
-              </div>
+              <Field label="Quantity">
+                <span className="select">
+                  <select value={qty} onChange={(e) => setQty(Number(e.target.value))}>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <ChevronDown size={20} />
+                </span>
+              </Field>
 
-              <div className="toggle-row">
-                <div>
-                  <h4>Gift to someone?</h4>
-                  <small>Send this voucher to a friend or family member.</small>
-                </div>
-                <button className={'switch ' + (gift ? 'on' : '')} onClick={() => setGift(!gift)} role="switch" aria-checked={gift}>
-                  <i />
-                </button>
-              </div>
+              <label className="optin">
+                <input type="checkbox" checked={gift} onChange={(e) => setGift(e.target.checked)} />
+                <span className="box" />
+                <span>Send this voucher as a gift</span>
+              </label>
 
               {gift && (
-                <div className="fields">
-                  <label>
-                    Recipient name
-                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Rahul Sharma" />
-                    {showErrors && !nameOk && <em>Enter the recipient's name.</em>}
-                  </label>
-                  <label>
-                    Mobile number
-                    <div className="phone-row">
-                      <span>+91</span>
-                      <input
-                        value={phone}
-                        inputMode="numeric"
-                        maxLength={10}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                        placeholder="98765 43210"
-                      />
-                    </div>
-                    {showErrors && !phoneOk && <em>Enter a 10-digit Indian mobile number.</em>}
-                  </label>
-                  <label>
-                    Message (optional)
-                    <textarea
-                      value={message}
-                      maxLength={200}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Here's a little something for you!"
+                <>
+                  <Field label="Recipient name" error={showErrors && !nameOk && "Enter the recipient's name"}>
+                    <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+                  </Field>
+                  <Field label="Mobile number" error={showErrors && !phoneOk && 'Enter a 10-digit Indian mobile number'}>
+                    <input
+                      value={phone}
+                      inputMode="numeric"
+                      maxLength={10}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                     />
+                  </Field>
+                  <Field label="Message (optional)">
+                    <textarea value={message} maxLength={200} onChange={(e) => setMessage(e.target.value)} rows={3} />
                     <small className="count">{message.length}/200</small>
-                  </label>
-                </div>
+                  </Field>
+                </>
               )}
 
-              <div className="pay-bar">
-                <span>You'll pay</span>
-                <b>{fmt(base.total)}</b>
-              </div>
-              {promo && base.promoDiscount > 0 && <small className="saving">Includes {fmt(base.promoDiscount)} off with {promo.code}</small>}
+              <p className="body total-line">
+                You'll pay <b>{fmt(base.total)}</b>
+                {base.promoDiscount > 0 && <span className="good"> (includes {fmt(base.promoDiscount)} off)</span>}
+              </p>
             </>
           )}
 
           {step === 1 && (
             <>
-              <h4>Payment mode</h4>
-              <div className="modes">
+              <h2>How do you want to pay?</h2>
+              <p className="cap">Total {fmt(base.total)}</p>
+              <div className="group" role="radiogroup" aria-label="Payment mode">
                 {options.map((o) => (
                   <button
                     key={o.id}
-                    className={'mode ' + (o.id === mode ? 'on' : '')}
+                    className="opt"
+                    role="radio"
+                    aria-checked={o.id === mode}
                     disabled={!o.ok}
                     onClick={() => setPayMode(o.id)}
                   >
-                    <span className="mode-ico">{o.icon}</span>
-                    <span className="mode-txt">
+                    <span className="opt-txt">
                       <b>{o.title}</b>
                       <small>{o.note}</small>
                     </span>
-                    <span className="radio" />
+                    <span className={'radio ' + (o.id === mode ? 'on' : '')} />
                   </button>
                 ))}
               </div>
-              <p className="hint">
+              <p className="cap">
                 Online payments open a page with all offers. Points need an OTP in the chat.
               </p>
             </>
@@ -182,36 +160,36 @@ export default function FlowSheet({ brandId, promo, points, onClose, onSubmit })
 
           {step === 2 && (
             <>
-              <h4>Order summary</h4>
-              <div className="sum">
-                <Line k="Denomination" v={fmt(denom)} />
-                <Line k="Quantity" v={qty} />
-                <Line k="For" v={gift ? `${name.trim()}, +91 ${phone}` : 'Me'} />
-                {gift && message.trim() && <Line k="Message" v={message.trim()} />}
-                <Line k="Payment" v={MODE_LABEL[mode]} />
-                {price.promoDiscount > 0 && <Line k={`Offer ${promo.code}`} v={'-' + fmt(price.promoDiscount)} good />}
-                {price.pointsUsed > 0 && <Line k="Points used" v={fmt(price.pointsUsed)} />}
-                {price.onlineDue > 0 && <Line k="To pay online" v={fmt(price.onlineDue)} />}
-                <div className="total">
-                  <span>Total amount</span>
-                  <b>{fmt(price.total)}</b>
-                </div>
+              <h2>Review your order</h2>
+              <div className="review">
+                <Row k="Voucher" v={`${brand.name}, ${fmt(denom)}`} />
+                <Row k="Quantity" v={qty} />
+                <Row k="For" v={gift ? `${name.trim()}, +91 ${phone}` : 'Me'} />
+                {gift && message.trim() && <Row k="Message" v={message.trim()} />}
+                <Row k="Payment" v={MODE_LABEL[mode]} />
+                {price.promoDiscount > 0 && <Row k={`Offer ${promo.code}`} v={'-' + fmt(price.promoDiscount)} good />}
+                {price.pointsUsed > 0 && <Row k="Points used" v={fmt(price.pointsUsed)} />}
+                {price.onlineDue > 0 && <Row k="To pay online" v={fmt(price.onlineDue)} />}
+                <div className="review-total"><span>Total</span><b>{fmt(price.total)}</b></div>
               </div>
             </>
           )}
         </div>
 
-        <button className="primary" onClick={next} disabled={disabled}>
-          {cta}
-        </button>
+        <div className="sheet-foot">
+          <button className="wa-primary" onClick={next} disabled={disabled}>
+            {step === 2 ? 'Confirm order' : 'Continue'}
+          </button>
+          <p className="managed">Managed by the business. <span>Learn more</span></p>
+        </div>
       </div>
     </div>
   );
 }
 
-function Line({ k, v, good }) {
+function Row({ k, v, good }) {
   return (
-    <div className="line">
+    <div className="rrow">
       <span>{k}</span>
       <b className={good ? 'good' : ''}>{v}</b>
     </div>

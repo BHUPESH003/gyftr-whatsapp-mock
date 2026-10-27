@@ -1,0 +1,66 @@
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #14181b;
+  background: #dde2e5;
+  overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  flex: none; display: flex; align-items: center; gap: 12px;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 8px;
+  background: #fff; border-bottom: 1px solid #d3d9dd;
+}
+.tb-title { font-size: 15px; font-weight: 650; white-space: nowrap; margin-right: auto; }
+.tb-btn { border: 1px solid #c3cbd0; background: #fff; border-radius: 9px; padding: 7px 12px; font-size: 14px; }
+.seg { display: flex; padding: 3px; gap: 3px; background: #d9dee2; border-radius: 10px; }
+.seg button { flex: 1; border: 0; background: none; border-radius: 8px; padding: 7px 10px; font-size: 13.5px; white-space: nowrap; }
+.seg button.on { background: #fff; font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
+button:focus-visible { outline: 2px solid #0a7d68; outline-offset: 2px; }
+
+/* ---------- stage ---------- */
+.stage { flex: 1; min-height: 0; position: relative; }
+.stage.device { background: radial-gradient(ellipse at 50% 38%, #f3f6f7 0%, #d5dbdf 70%, #c7cfd4 100%); }
+.stage.full { background: #d5dbdf; }
+.full-wrap { height: 100%; max-width: 560px; margin: 0 auto; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.12); }
+
+/* 3D phone */
+.d3 { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+.d3-canvas { position: absolute; inset: 0; display: block; filter: drop-shadow(0 36px 36px rgba(20, 30, 40, 0.38)); cursor: grab; }
+.d3-canvas:active { cursor: grabbing; }
+.d3-css { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.screen3d { background: #000; border-radius: 56px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; user-select: auto; touch-action: auto; }
+.d3-ui { position: absolute; z-index: 5; left: 0; right: 0; bottom: 14px; display: flex; gap: 10px; align-items: center; justify-content: center; font-size: 13px; color: #4b5860; pointer-events: none; }
+.d3-ui button { pointer-events: auto; border: 1px solid #b7c0c6; background: rgba(255, 255, 255, 0.85); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+.d3.flat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.flat-frame { width: 440px; height: 956px; max-height: calc(100% - 40px); border-radius: 56px; border: 11px solid #1b1d20; overflow: hidden; background: #000; transform-origin: center; }
+.d3-hint { font-size: 13px; color: #4b5860; margin: 0; }
+
+/* ---------- settings drawer ---------- */
+.drawer-scrim { position: fixed; inset: 0; z-index: 200; display: flex; justify-content: flex-end; background: rgba(0, 0, 0, 0.35); }
+.drawer { width: min(380px, 100%); height: 100%; overflow-y: auto; padding: 20px; background: #fff; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; }
+.drawer h1 { margin: 0; font-size: 20px; }
+.drawer h2 { margin: 22px 0 8px; font-size: 14px; }
+.lead { margin: 6px 0 18px; color: #5b6870; font-size: 14px; }
+.ctl { margin-bottom: 16px; }
+.ctl-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; }
+.restart { width: 100%; padding: 10px; border: 1px solid #b6bfc4; border-radius: 10px; background: none; }
+.drawer ul { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.65; color: #38464f; }
+
+@media (max-width: 700px) {
+  .tb-title { display: none; }
+  .topbar { justify-content: space-between; }
+  .full-wrap { max-width: none; box-shadow: none; }
+  .drawer-scrim { align-items: flex-end; }
+  .drawer { width: 100%; height: auto; max-height: 88%; border-radius: 18px 18px 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+}
+
+.loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: #4b5860; font-size: 14px; }

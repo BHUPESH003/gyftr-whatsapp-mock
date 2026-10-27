@@ -10,7 +10,12 @@ npm install
 npm run dev
 ```
 
-Open the URL Vite prints. Use the panel on the left to switch between:
+Open the URL Vite prints. There are two views, switched from the top bar (or with `?view=device` / `?view=full`):
+
+- **3D phone**: a three.js phone with the live WhatsApp chat on its screen. Drag the frame to turn it, including to the back. The screen stays fully clickable.
+- **Full screen**: the chat fills the viewport with no frame, for any phone or browser. Share this one with `?view=full`. It is the default on narrow screens.
+
+Open **Settings** in the top bar to switch between:
 
 - **User starts chat** and **Marketing banner** (the banner skips browsing and opens Brand A with offer `WELCOME10`)
 - **Buttons + Flow** and **Menu fallback** (plain numbered replies, for when Flows are not available)
@@ -39,9 +44,14 @@ Demo values: points OTP is `123456`. Any `name@bank` works as a UPI ID.
 | --- | --- |
 | `src/useBot.js` | All conversation logic for both modes, payment sequencing |
 | `src/data.js` | Brands, offers, pricing rules, seed orders. Swap for real Gyftr APIs here |
+| `src/components/PhoneScreen.jsx` | The WhatsApp app: header, chat, composer, overlays |
 | `src/components/Chat.jsx` | Renders every WhatsApp message type |
-| `src/components/FlowSheet.jsx` | The Flow screens |
-| `src/components/WebView.jsx` | Offers page, UPI path, bank or gateway redirect |
+| `src/components/ListSheet.jsx` | The sheet a list message opens |
+| `src/components/FlowSheet.jsx` | The Flow screens, built from real Flow components |
+| `src/components/WebView.jsx` | In-app browser: offers page, UPI path, bank or gateway redirect |
+| `src/components/UpiApp.jsx` | Demo stand-in for the customer's UPI app |
+| `src/components/Device3D.jsx` | three.js phone, with the chat mounted on its screen through CSS3D |
+| `src/styles/whatsapp.css` | All WhatsApp styling |
 
 ## Assumptions to confirm with Gyftr
 
@@ -50,6 +60,12 @@ Demo values: points OTP is `123456`. Any `name@bank` works as a UPI ID.
 - 1 point = Rs 1.
 - Offers are mock values. UPI is a cashback, card and netbanking are instant discounts.
 - Card details are never entered in the Flow (Meta says Flows are not meant for PCI data). Card entry only happens on the gateway page.
+
+## How close to WhatsApp is it
+
+The layout, colours, bubble shapes, button rows, list sheet, Flow components, in-app browser and iOS bars follow WhatsApp for iOS in light mode, built from memory and public references, not measured from Meta's assets. For a pixel match, put a real screenshot next to it and tune the values at the top of `whatsapp.css`. Fonts fall back to the system font off Apple devices, since SF Pro cannot be shipped.
+
+The 3D phone's screen is the confirmed iPhone 18 Pro Max display (6.9 inch, 2868 x 1320 at 460 ppi, which is 956 x 440 points). The body, bezel and camera plateau are an approximation.
 
 ## Mock versus real WhatsApp
 

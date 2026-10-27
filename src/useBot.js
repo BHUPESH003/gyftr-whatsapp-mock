@@ -135,7 +135,8 @@ export function useBot({ entry, mode, startPoints }) {
     st.current.step = null;
     say({
       kind: 'list',
-      text: 'Your recent orders. Tap one to see its status:',
+      title: 'Orders',
+      text: 'Your recent orders. Tap the button to pick one:',
       rows: list.map((o) => ({
         id: 'order:' + o.id,
         label: `${o.id}, ${brandById(o.brandId).name}`,
@@ -170,6 +171,7 @@ export function useBot({ entry, mode, startPoints }) {
       { kind: 'carousel', text: 'Here are some popular brands:', cards: BRANDS.slice(0, 6) },
       {
         kind: 'list',
+        title: 'Categories',
         text: 'Or choose a category:',
         rows: CATEGORIES.map((c) => ({ id: 'cat:' + c.id, label: c.label, icon: c.icon })),
       }
