@@ -10,29 +10,35 @@ export const CATEGORIES = [
   { id: 'entertainment', label: 'Entertainment', icon: '🎬' },
 ];
 
+// Real Gyftr partners. Logos and photos were saved from gyftr.com into public/brands.
+const B = (id, name, cat, tint, logo, hero) => ({
+  id, name, cat, tint, logo: `/brands/${id}-logo.${logo}`, hero: hero ? `/brands/${id}-hero.${hero}` : null,
+});
 export const BRANDS = [
-  { id: 'a', name: 'Brand A', cat: 'food', icon: '🍕', tint: '#fde2e4' },
-  { id: 'b', name: 'Brand B', cat: 'shopping', icon: '🛒', tint: '#fff1c2' },
-  { id: 'c', name: 'Brand C', cat: 'shopping', icon: '🏷️', tint: '#dbeafe' },
-  { id: 'd', name: 'Brand D', cat: 'entertainment', icon: '🎮', tint: '#dcfce7' },
-  { id: 'e', name: 'Brand E', cat: 'entertainment', icon: '▶️', tint: '#ede9fe' },
-  { id: 'f', name: 'Brand F', cat: 'food', icon: '🥘', tint: '#ffedd5' },
-  { id: 'g', name: 'Brand G', cat: 'travel', icon: '✈️', tint: '#e0f2fe' },
-  { id: 'h', name: 'Brand H', cat: 'travel', icon: '🛏️', tint: '#f3e8ff' },
-  { id: 'i', name: 'Brand I', cat: 'shopping', icon: '🎁', tint: '#d1fae5' },
+  B('a', 'Pizza Hut', 'food', '#fde2e4', 'png', 'webp'),
+  B('b', 'Myntra', 'shopping', '#ffe4ef', 'png', 'webp'),
+  B('c', 'Croma', 'shopping', '#dcfce7', 'png', 'png'),
+  B('d', 'BGMI UC', 'entertainment', '#fff1c2', 'png'),
+  B('e', 'Bata', 'shopping', '#fee2e2', 'png', 'png'),
+  B('f', 'EazyDiner', 'food', '#ffedd5', 'png'),
+  B('g', 'MakeMyTrip Hotels', 'travel', '#e0f2fe', 'webp'),
+  B('h', 'Ola Cabs', 'travel', '#ecfccb', 'png', 'webp'),
+  B('i', 'Lifestyle', 'shopping', '#ede9fe', 'png', 'webp'),
+  B('j', 'Zepto', 'food', '#f3e8ff', 'png'),
 ];
 
+export const PRODUCT_BLURB = 'Valid for 12 months. Delivered instantly on WhatsApp.';
 export const DENOMS = [250, 500, 1000, 2000, 5000];
 
 // Promo codes. A promo with a brandId only works on that partner, otherwise it works on any.
 export const PROMOS = [
-  { code: 'WELCOME10', label: '10% off (up to ₹100)', note: 'First order on Brand A', pct: 10, cap: 100, min: 0, brandId: 'a' },
+  { code: 'WELCOME10', label: '10% off (up to ₹100)', note: 'First order on Pizza Hut', pct: 10, cap: 100, min: 0, brandId: 'a' },
   { code: 'GIFT50', label: '₹50 off', note: 'On orders of ₹500 and above', flat: 50, min: 500, brandId: null },
   { code: 'TREAT5', label: '5% off (up to ₹75)', note: 'On any partner', pct: 5, cap: 75, min: 0, brandId: null },
   { code: 'TRAVEL15', label: '15% off (up to ₹300)', note: 'Travel partners, ₹1,000 and above', pct: 15, cap: 300, min: 1000, brandId: 'g' },
 ];
 
-// Marketing banner journey: opens straight into Brand A with this code applied.
+// Marketing banner journey: opens straight into Pizza Hut with this code applied.
 export const PROMO = PROMOS[0];
 
 export const promoValue = (promo, subtotal) => {

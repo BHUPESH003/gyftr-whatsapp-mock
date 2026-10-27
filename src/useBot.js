@@ -5,6 +5,7 @@ import {
   DEMO_OTP,
   DENOMS,
   MODE_LABEL,
+  PRODUCT_BLURB,
   PROMO,
   SEED_ORDERS,
   STATUS_LABEL,
@@ -35,10 +36,11 @@ export function useBot({ entry, mode, startPoints }) {
   const [points, setPoints] = useState(startPoints);
   const [orders, setOrders] = useState(SEED_ORDERS);
   const [overlay, setOverlay] = useState(null);
+  const [cart, setCart] = useState(null); // shown by the floating cart icon
 
   const sess = useRef(0);
   const queue = useRef(Promise.resolve());
-  const st = useRef({ step: null, lastPrompt: '', draft: {}, promo: null, otpTries: 0 });
+  const st = useRef({ step: null, lastPrompt: '', draft: {}, promo: null, otpTries: 0, cart: null });
   const live = useRef({ points: startPoints, orders: SEED_ORDERS });
   const cfg = useRef({ entry, mode });
   cfg.current = { entry, mode };
@@ -187,13 +189,45 @@ export function useBot({ entry, mode, startPoints }) {
 
   // A carousel button can only send a quick reply, and a Flow can only be opened
   // from a button in an interactive message. So "View" sends this message first.
-  const showBrand = (id) => {
+  // Product details: an image card plus a list to pick the amount (WhatsApp has no
+  // dropdown in a chat message). Picking an amount sends a cart, like the native cart flow.
+  const showBrand = (id, note) => {
     const b = brandById(id);
+    const s = st.current;
+    s.cart = null;
+    setCart(null);
+    if (isMenu()) {
+      s.draft.brandId = id;
+      say({ kind: 'text', text: `*${b.name} gift voucher*\nFrom ${fmt(DENOMS[0])}. ${PRODUCT_BLURB}${note ? `\n${note}` : ''}` });
+      return askDenom();
+    }
     say({
-      kind: 'flowButton',
+      kind: 'product',
       brandId: id,
-      text: `${b.icon} ${b.name} gift voucher\nValid for 12 months. Delivered instantly on WhatsApp.`,
-      label: 'Buy voucher',
+      from: fmt(DENOMS[0]),
+      text: `${PRODUCT_BLURB}${note ? `\n${note}` : ''}`,
+      title: 'Choose amount',
+      rows: DENOMS.map((d) => ({ id: `denom:${id}:${d}`, label: fmt(d), sub: `${b.name} gift voucher`, icon: '🎟️' })),
+    });
+  };
+
+  const cartText = (c) => {
+    const b = brandById(c.brandId);
+    return `${c.qty} x ${b.name} gift voucher (${fmt(c.denom)})\n\nCart total: ${fmt(c.denom * c.qty)}`;
+  };
+
+  const addToCart = (brandId, denom) => {
+    const c = { brandId, denom, qty: 1 };
+    st.current.cart = c;
+    setCart(c);
+    addMsg({ from: 'user', kind: 'cartSent', ...c });
+    const p = st.current.promo;
+    const offer = p && p.brandId === brandId ? `\nOffer ${p.code} will be applied at checkout.` : '';
+    say({
+      kind: 'cartAdded',
+      brandId,
+      text: `Hooray! 🎉 The product has been added to your cart.\n\n${cartText(c)}${offer}`,
+      buttons: [{ id: 'buy', label: 'Continue shopping' }],
     });
   };
 
@@ -206,17 +240,13 @@ export function useBot({ entry, mode, startPoints }) {
       askDenom();
       return;
     }
-    say({
-      kind: 'flowButton',
-      brandId: PROMO.brandId,
-      text: `Offer ${PROMO.code} applied 🎉\n${PROMO.label} on ${b.name}. Tap below to finish your order.`,
-      label: 'Buy voucher',
-    });
+    showBrand(PROMO.brandId, `Offer ${PROMO.code} applied 🎉 ${PROMO.label} on ${b.name}.`);
   };
 
   const openFlow = (brandId) => {
     const p = st.current.promo;
-    setOverlay({ type: 'flow', brandId, promo: p && p.brandId === brandId ? p : null });
+    const c = st.current.cart;
+    setOverlay({ type: 'flow', brandId, promo: p && p.brandId === brandId ? p : null, cart: c && c.brandId === brandId ? c : null });
   };
 
   // ---------- orders and payment ----------
@@ -242,6 +272,8 @@ export function useBot({ entry, mode, startPoints }) {
 
   const onFlowSubmit = (d) => {
     setOverlay(null);
+    setCart(null);
+    st.current.cart = null;
     const b = brandById(d.brandId);
     addMsg({
       from: 'user',
@@ -529,6 +561,8 @@ export function useBot({ entry, mode, startPoints }) {
       case 'menu_qty':
         if (!(n >= 1 && n <= 10)) return bad();
         s.draft.qty = n;
+        setCart({ brandId: s.draft.brandId, denom: s.draft.denom, qty: n });
+        say({ kind: 'text', text: `Added to your cart 🛒\n${cartText(s.draft)}` });
         return askPromo();
       case 'menu_promo': {
         if (/^skip$/i.test(t)) return askRecipient();
@@ -565,11 +599,13 @@ export function useBot({ entry, mode, startPoints }) {
       case 'menu_confirm': {
         if (n === 2) {
           s.draft = {};
+          setCart(null);
           say({ kind: 'text', text: 'Order cancelled.' });
           return mainMenu(false);
         }
         if (n !== 1) return bad();
         const d = s.draft;
+        setCart(null);
         const o = createOrder({ ...d, promo: activePromo(d), message: '' });
         s.draft = { orderId: o.id };
         const payWord = o.pointsUsed > 0 ? 'pay with points' : 'pay now';
@@ -593,9 +629,11 @@ export function useBot({ entry, mode, startPoints }) {
   // ---------- inputs from the UI ----------
   // Taps on buttons, list rows and carousel cards.
   const act = (id, label) => {
-    userSay(label);
-    const [k, v] = id.split(':');
+    const [k, v, w] = id.split(':');
+    if (k !== 'denom') userSay(label);
     switch (k) {
+      case 'denom':
+        return addToCart(v, Number(w));
       case 'buy':
         return buyIntro();
       case 'track':
@@ -646,10 +684,11 @@ export function useBot({ entry, mode, startPoints }) {
     setMessages([]);
     setTyping(false);
     setOverlay(null);
+    setCart(null);
     live.current = { points: startPoints, orders: SEED_ORDERS };
     setPoints(startPoints);
     setOrders(SEED_ORDERS);
-    st.current = { step: null, lastPrompt: '', draft: {}, promo: null, otpTries: 0 };
+    st.current = { step: null, lastPrompt: '', draft: {}, promo: null, otpTries: 0, cart: null };
 
     if (cfg.current.entry === 'marketing') {
       if (isMenu()) {
@@ -657,7 +696,7 @@ export function useBot({ entry, mode, startPoints }) {
       } else {
         say({
           kind: 'banner',
-          headline: '10% off Brand A vouchers',
+          headline: '10% off Pizza Hut vouchers',
           body: 'Gift smarter with Gyftr. Use code WELCOME10 on your first order. Valid till 31 Oct.',
           label: 'Claim offer',
           delay: 300,
@@ -679,6 +718,7 @@ export function useBot({ entry, mode, startPoints }) {
     points,
     orders,
     overlay,
+    cart,
     act,
     onText,
     openFlow,

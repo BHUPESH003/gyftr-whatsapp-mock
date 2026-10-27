@@ -3,10 +3,11 @@ import { useBot } from '../useBot';
 import { fmt } from '../data';
 import Chat, { Composer } from './Chat';
 import FlowSheet from './FlowSheet';
+import CartSheet from './CartSheet';
 import ListSheet from './ListSheet';
 import UpiApp from './UpiApp';
 import WebView from './WebView';
-import { BatteryIcon, ChevronLeft, Phone, SignalIcon, Verified, WifiIcon } from './icons';
+import { BatteryIcon, CartIcon, ChevronLeft, Phone, SignalIcon, Verified, WifiIcon } from './icons';
 
 function StatusBar() {
   return (
@@ -25,6 +26,7 @@ function StatusBar() {
 export default function PhoneScreen({ entry, mode, startPoints, device }) {
   const bot = useBot({ entry, mode, startPoints });
   const [list, setList] = useState(null);
+  const [cartOpen, setCartOpen] = useState(null);
   const [upiOpen, setUpiOpen] = useState(false);
 
   const pendingUpi = bot.messages.find((m) => m.kind === 'upiRequest' && m.state === 'pending');
@@ -52,6 +54,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         onOpenFlow={bot.openFlow}
         onOpenPay={bot.openPay}
         onOpenList={setList}
+        onOpenCart={setCartOpen}
       />
       <Composer onText={bot.onText} />
       {device && <div className="home-ind" aria-hidden="true" />}
@@ -67,10 +70,18 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
           }}
         />
       )}
+      {bot.cart && (
+        <button className="fab-cart" onClick={() => setCartOpen(bot.cart)} aria-label={`Cart, ${bot.cart.qty} item`}>
+          <CartIcon size={24} />
+          <span className="fab-badge">{bot.cart.qty}</span>
+        </button>
+      )}
+      {cartOpen && <CartSheet cart={cartOpen} onClose={() => setCartOpen(null)} />}
       {bot.overlay?.type === 'flow' && (
         <FlowSheet
           brandId={bot.overlay.brandId}
           promo={bot.overlay.promo}
+          cart={bot.overlay.cart}
           points={bot.points}
           onClose={bot.closeOverlay}
           onSubmit={bot.onFlowSubmit}

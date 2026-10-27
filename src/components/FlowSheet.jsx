@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DENOMS, MODE_LABEL, brandById, fmt, offersForBrand, payModeOptions, priceOrder, promoValue, validatePromo } from '../data';
+import BrandArt from './BrandArt';
 import { ChevronDown, ChevronLeft, Close, Dots } from './icons';
 
 const TITLES = ['Voucher details', 'Payment', 'Review order'];
@@ -18,11 +19,11 @@ function Field({ label, error, children }) {
  * A WhatsApp Flow. Uses the components Flows really have: heading, body text,
  * radio buttons, dropdown, opt-in checkbox, text inputs and a footer button.
  */
-export default function FlowSheet({ brandId, promo: startPromo, points, onClose, onSubmit }) {
+export default function FlowSheet({ brandId, promo: startPromo, cart, points, onClose, onSubmit }) {
   const brand = brandById(brandId);
   const [step, setStep] = useState(0);
-  const [denom, setDenom] = useState(DENOMS[0]);
-  const [qty, setQty] = useState(1);
+  const [denom, setDenom] = useState(cart?.denom ?? DENOMS[0]);
+  const [qty, setQty] = useState(cart?.qty ?? 1);
   const [gift, setGift] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -96,7 +97,7 @@ export default function FlowSheet({ brandId, promo: startPromo, points, onClose,
         <div className="sheet-body flow-body">
           {step === 0 && (
             <>
-              <div className="flow-img" style={{ background: brand.tint }}><span>{brand.icon}</span></div>
+              <BrandArt brand={brand} className="flow-img" />
               <h2>{brand.name} gift voucher</h2>
               {promo ? (
                 <p className="cap good">{promo.code} applied: {promo.label}</p>

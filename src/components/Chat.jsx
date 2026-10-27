@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { MODE_LABEL, STATUS_LABEL, brandById, fmt } from '../data';
+import BrandArt from './BrandArt';
 import { Camera, CopyIcon, External, FlowIcon, ListIcon, Lock, Mic, Plus, Reply, Send, Sticker, Ticks } from './icons';
 
 /* WhatsApp text formatting: *bold* and ```monospace``` */
@@ -135,9 +136,7 @@ function Message({ m, tail, orders, a }) {
           <div className="cards">
             {m.cards.map((c) => (
               <div key={c.id} className="wcard">
-                <div className="wcard-img" style={{ background: c.tint }}>
-                  <span>{c.icon}</span>
-                </div>
+                <BrandArt brand={c} className="wcard-img" />
                 <div className="wcard-body">
                   <b>{c.name}</b>
                   <span>Gift voucher</span>
@@ -146,6 +145,51 @@ function Message({ m, tail, orders, a }) {
               </div>
             ))}
           </div>
+        </div>
+      );
+
+    case 'product': {
+      const b = brandById(m.brandId);
+      return (
+        <div className="stack">
+          <div className="bubble in tail media">
+            <BrandArt brand={b} className="prod-art" />
+            <span className="txt pad"><b>{b.name} gift voucher</b></span>
+            <span className="foot pad">From {m.from}</span>
+            <span className="txt pad"><Rich text={m.text} /></span>
+            <Meta m={m} />
+          </div>
+          <WBtn icon="list" onClick={() => a.onOpenList(m)}>{m.title}</WBtn>
+        </div>
+      );
+    }
+
+    // the cart the customer sends from WhatsApp's native catalog flow
+    case 'cartSent': {
+      const b = brandById(m.brandId);
+      return (
+        <div className="stack">
+          <div className="bubble out tail cartmsg">
+            <div className="cart-row">
+              <BrandArt brand={b} logo className="cart-thumb" />
+              <div className="cart-info">
+                <b>🛒 {m.qty} item</b>
+                <span>{fmt(m.denom * m.qty)}.00 (estimated total)</span>
+              </div>
+            </div>
+            <Meta m={m} />
+          </div>
+          <WBtn onClick={() => a.onOpenCart(m)}>View sent cart</WBtn>
+        </div>
+      );
+    }
+
+    case 'cartAdded':
+      return (
+        <div className="stack">
+          <Bubble m={m} tail={tail}><span className="txt"><Rich text={m.text} /></span></Bubble>
+          <WBtn icon="flow" onClick={() => a.onOpenFlow(m.brandId)}>Place My Order</WBtn>
+          <Buttons buttons={m.buttons} onAct={a.onAct} />
         </div>
       );
 
@@ -323,9 +367,9 @@ function Message({ m, tail, orders, a }) {
   }
 }
 
-export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList }) {
+export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart }) {
   const ref = useRef(null);
-  const a = { onAct, onOpenFlow, onOpenPay, onOpenList };
+  const a = { onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart };
 
   // Scroll only the chat itself. scrollIntoView would also scroll the 3D layer's ancestors.
   useEffect(() => {
