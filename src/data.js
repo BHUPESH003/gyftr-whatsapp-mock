@@ -41,23 +41,48 @@ export const PROMOS = [
 // Marketing banner journey: opens straight into Pizza Hut with this code applied.
 export const PROMO = PROMOS[0];
 
-export const promoValue = (promo, subtotal) => {
-  if (!promo || subtotal < (promo.min || 0)) return 0;
-  return promo.flat ?? Math.min(Math.round((subtotal * promo.pct) / 100), promo.cap);
+// A cart is a list of { brandId, denom, qty }. Old single-voucher orders have no items, so wrap them.
+export const lineItems = (o) => o.items || [{ brandId: o.brandId, denom: o.denom, qty: o.qty }];
+export const itemsSubtotal = (items) => items.reduce((n, i) => n + i.denom * i.qty, 0);
+export const itemCount = (items) => items.reduce((n, i) => n + i.qty, 0);
+export const orderTitle = (o) => {
+  const it = lineItems(o);
+  const first = `${brandById(it[0].brandId).name}, ${fmt(it[0].denom)} × ${it[0].qty}`;
+  return it.length > 1 ? `${first} +${it.length - 1} more` : first;
+};
+// Add a voucher to a cart, merging a repeat of the same brand and amount.
+export const addItem = (items, add) => {
+  const hit = items.find((i) => i.brandId === add.brandId && i.denom === add.denom);
+  return hit
+    ? items.map((i) => (i === hit ? { ...i, qty: Math.min(10, i.qty + add.qty) } : i))
+    : [...items, add];
 };
 
-export const offersForBrand = (brandId) => PROMOS.filter((p) => !p.brandId || p.brandId === brandId);
+// A promo with a brandId only counts the items of that brand.
+export const eligibleSubtotal = (promo, items) =>
+  itemsSubtotal(items.filter((i) => !promo.brandId || promo.brandId === i.brandId));
 
-export function validatePromo(rawCode, brandId, subtotal) {
+export const promoValue = (promo, items) => {
+  if (!promo) return 0;
+  const sub = eligibleSubtotal(promo, items);
+  if (!sub || sub < (promo.min || 0)) return 0;
+  return promo.flat ?? Math.min(Math.round((sub * promo.pct) / 100), promo.cap);
+};
+
+export const offersForItems = (items) =>
+  PROMOS.filter((p) => !p.brandId || items.some((i) => i.brandId === p.brandId));
+
+export function validatePromo(rawCode, items) {
   const code = String(rawCode || '').trim().toUpperCase();
   if (!code) return { ok: false, error: 'Enter a promo code' };
   const promo = PROMOS.find((p) => p.code === code);
   if (!promo) return { ok: false, error: 'This code is not valid' };
-  if (promo.brandId && promo.brandId !== brandId) {
+  const sub = eligibleSubtotal(promo, items);
+  if (promo.brandId && !sub) {
     return { ok: false, error: `${promo.code} only works on ${brandById(promo.brandId).name}` };
   }
-  if (subtotal < (promo.min || 0)) {
-    return { ok: false, error: `Add ${fmt(promo.min - subtotal)} more to use ${promo.code}` };
+  if (sub < (promo.min || 0)) {
+    return { ok: false, error: `Add ${fmt(promo.min - sub)} more to use ${promo.code}` };
   }
   return { ok: true, promo };
 }
@@ -85,9 +110,9 @@ export const MODE_LABEL = { points: 'Points', online: 'Pay online', split: 'Poin
 export const fmt = (n) => '₹' + Number(n).toLocaleString('en-IN');
 export const brandById = (id) => BRANDS.find((b) => b.id === id);
 
-export function priceOrder({ denom, qty, promo, payMode, points }) {
-  const subtotal = denom * qty;
-  const promoDiscount = promoValue(promo, subtotal);
+export function priceOrder({ items, promo, payMode, points }) {
+  const subtotal = itemsSubtotal(items);
+  const promoDiscount = promoValue(promo, items);
   const total = subtotal - promoDiscount;
   let pointsUsed = 0;
   if (payMode === 'points') pointsUsed = total;

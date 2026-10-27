@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { MODE_LABEL, STATUS_LABEL, brandById, fmt } from '../data';
+import { MODE_LABEL, STATUS_LABEL, brandById, fmt, itemCount, itemsSubtotal, lineItems } from '../data';
 import BrandArt from './BrandArt';
 import { Camera, CopyIcon, External, FlowIcon, ListIcon, Lock, Mic, Plus, Reply, Send, Sticker, Ticks } from './icons';
 
@@ -159,27 +159,27 @@ function Message({ m, tail, orders, a }) {
             <span className="txt pad"><Rich text={m.text} /></span>
             <Meta m={m} />
           </div>
-          <WBtn icon="list" onClick={() => a.onOpenList(m)}>{m.title}</WBtn>
+          <WBtn icon="link" onClick={() => a.onOpenProduct(m.brandId)}>View details</WBtn>
         </div>
       );
     }
 
     // the cart the customer sends from WhatsApp's native catalog flow
     case 'cartSent': {
-      const b = brandById(m.brandId);
+      const n = itemCount(m.items);
       return (
         <div className="stack">
           <div className="bubble out tail cartmsg">
             <div className="cart-row">
-              <BrandArt brand={b} logo className="cart-thumb" />
+              <BrandArt brand={brandById(m.items[0].brandId)} logo className="cart-thumb" />
               <div className="cart-info">
-                <b>🛒 {m.qty} item</b>
-                <span>{fmt(m.denom * m.qty)}.00 (estimated total)</span>
+                <b>🛒 {n} item{n > 1 ? 's' : ''}</b>
+                <span>{fmt(itemsSubtotal(m.items))}.00 (estimated total)</span>
               </div>
             </div>
             <Meta m={m} />
           </div>
-          <WBtn onClick={() => a.onOpenCart(m)}>View sent cart</WBtn>
+          <WBtn onClick={() => a.onOpenCart({ items: m.items, readOnly: true })}>View sent cart</WBtn>
         </div>
       );
     }
@@ -188,7 +188,7 @@ function Message({ m, tail, orders, a }) {
       return (
         <div className="stack">
           <Bubble m={m} tail={tail}><span className="txt"><Rich text={m.text} /></span></Bubble>
-          <WBtn icon="flow" onClick={() => a.onOpenFlow(m.brandId)}>Place My Order</WBtn>
+          <WBtn icon="flow" onClick={() => a.onOpenFlow()}>Place My Order</WBtn>
           <Buttons buttons={m.buttons} onAct={a.onAct} />
         </div>
       );
@@ -237,7 +237,6 @@ function Message({ m, tail, orders, a }) {
 
     case 'order': {
       if (!order) return null;
-      const b = brandById(order.brandId);
       return (
         <div className="stack">
           <Bubble m={m} tail={tail}>
@@ -247,7 +246,7 @@ function Message({ m, tail, orders, a }) {
                 ['Here are the details:'],
                 [''],
                 ['Order', order.id],
-                ['Voucher', `${b.name}, ${fmt(order.denom)} × ${order.qty}`],
+                ...lineItems(order).map((i) => ['Voucher', `${brandById(i.brandId).name}, ${fmt(i.denom)} × ${i.qty}`]),
                 ['For', forWhom(order)],
                 order.message ? ['Message', order.message] : null,
                 ['Payment', MODE_LABEL[order.payMode]],
@@ -267,7 +266,6 @@ function Message({ m, tail, orders, a }) {
 
     case 'orderStatus': {
       if (!order) return null;
-      const b = brandById(order.brandId);
       const steps = [
         ['Order placed', true],
         ['Payment received', order.status === 'processing' || order.status === 'delivered'],
@@ -279,7 +277,7 @@ function Message({ m, tail, orders, a }) {
             <Lines
               rows={[
                 [`*Order ${order.id}*`],
-                [`${b.name}, ${fmt(order.denom)} × ${order.qty}`],
+                ...lineItems(order).map((i) => [`${brandById(i.brandId).name}, ${fmt(i.denom)} × ${i.qty}`]),
                 [`Status: ${STATUS_LABEL[order.status]}`],
                 [''],
                 ...steps.map(([label, done]) => [`${done ? '✅' : '⏳'} ${label}`]),
@@ -316,17 +314,22 @@ function Message({ m, tail, orders, a }) {
 
     case 'voucher': {
       if (!order) return null;
-      const b = brandById(order.brandId);
+      let at = 0;
+      const groups = lineItems(order).flatMap((i) => {
+        const codes = m.codes.slice(at, (at += i.qty));
+        return [
+          [`${brandById(i.brandId).name} gift voucher, ${fmt(i.denom)}`],
+          ...codes.map((c, k) => [codes.length > 1 ? `Code ${k + 1}` : 'Code', `\`\`\`${c}\`\`\``]),
+          [''],
+        ];
+      });
       return (
         <div className="stack">
           <Bubble m={m} tail={tail}>
             <Lines
               rows={[
                 ['*Your voucher is ready!* 🎉'],
-                [`${b.name} gift voucher, ${fmt(order.denom)}`],
-                [''],
-                ...m.codes.map((c, i) => [m.codes.length > 1 ? `Code ${i + 1}` : 'Code', `\`\`\`${c}\`\`\``]),
-                [''],
+                ...groups,
                 [`${order.gift ? `Sent to ${order.gift.name} (+91 ${order.gift.phone}).` : 'Also sent by SMS and email.'} Valid for 12 months. Terms apply.`],
               ]}
             />
@@ -367,9 +370,9 @@ function Message({ m, tail, orders, a }) {
   }
 }
 
-export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart }) {
+export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct }) {
   const ref = useRef(null);
-  const a = { onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart };
+  const a = { onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct };
 
   // Scroll only the chat itself. scrollIntoView would also scroll the 3D layer's ancestors.
   useEffect(() => {

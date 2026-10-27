@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useBot } from '../useBot';
-import { fmt } from '../data';
+import { fmt, itemCount } from '../data';
 import Chat, { Composer } from './Chat';
 import FlowSheet from './FlowSheet';
 import CartSheet from './CartSheet';
 import ListSheet from './ListSheet';
+import ProductSheet from './ProductSheet';
 import UpiApp from './UpiApp';
 import WebView from './WebView';
 import { BatteryIcon, CartIcon, ChevronLeft, Phone, SignalIcon, Verified, WifiIcon } from './icons';
@@ -26,7 +27,8 @@ function StatusBar() {
 export default function PhoneScreen({ entry, mode, startPoints, device }) {
   const bot = useBot({ entry, mode, startPoints });
   const [list, setList] = useState(null);
-  const [cartOpen, setCartOpen] = useState(null);
+  const [cartOpen, setCartOpen] = useState(null); // { items, readOnly }
+  const [productId, setProductId] = useState(null);
   const [upiOpen, setUpiOpen] = useState(false);
 
   const pendingUpi = bot.messages.find((m) => m.kind === 'upiRequest' && m.state === 'pending');
@@ -38,7 +40,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         {device && <StatusBar />}
         <header className="wa-head">
           <span className="back"><ChevronLeft size={30} /></span>
-          <span className="avatar">G</span>
+          <img className="avatar" src="/gyftr-icon.png" alt="Gyftr" />
           <div className="who">
             <b>Gyftr <Verified size={15} /></b>
             <small className={bot.typing ? 'typing' : ''}>{bot.typing ? 'typing…' : 'Business Account'}</small>
@@ -55,6 +57,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         onOpenPay={bot.openPay}
         onOpenList={setList}
         onOpenCart={setCartOpen}
+        onOpenProduct={setProductId}
       />
       <Composer onText={bot.onText} />
       {device && <div className="home-ind" aria-hidden="true" />}
@@ -71,24 +74,38 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         />
       )}
       {bot.cart && (
-        <button className="fab-cart" onClick={() => setCartOpen(bot.cart)} aria-label={`Cart, ${bot.cart.qty} item`}>
+        <button className="fab-cart" onClick={() => setCartOpen({ items: bot.cart })} aria-label={`Cart, ${itemCount(bot.cart)} items`}>
           <CartIcon size={24} />
-          <span className="fab-badge">{bot.cart.qty}</span>
+          <span className="fab-badge">{itemCount(bot.cart)}</span>
         </button>
       )}
-      {cartOpen && <CartSheet cart={cartOpen} onClose={() => setCartOpen(null)} />}
+      {cartOpen && (
+        <CartSheet
+          items={cartOpen.readOnly ? cartOpen.items : bot.cart || []}
+          readOnly={cartOpen.readOnly}
+          onChange={(items) => { bot.setCartItems(items); if (!items.length) setCartOpen(null); }}
+          onCheckout={() => { setCartOpen(null); bot.openFlow(); }}
+          onClose={() => setCartOpen(null)}
+        />
+      )}
+      {productId && (
+        <ProductSheet
+          brandId={productId}
+          onClose={() => setProductId(null)}
+          onAdd={(id, denom, qty) => { setProductId(null); bot.addToCart(id, denom, qty); }}
+        />
+      )}
       {bot.overlay?.type === 'flow' && (
         <FlowSheet
-          brandId={bot.overlay.brandId}
+          items={bot.overlay.items}
           promo={bot.overlay.promo}
-          cart={bot.overlay.cart}
           points={bot.points}
           onClose={bot.closeOverlay}
           onSubmit={bot.onFlowSubmit}
         />
       )}
       {payOrder && (
-        <WebView order={payOrder} onUpi={bot.onUpiPay} onGateway={bot.onGatewayDone} onClose={bot.closeOverlay} />
+        <WebView order={payOrder} onApplyPromo={bot.applyPromo} onUpi={bot.onUpiPay} onGateway={bot.onGatewayDone} onClose={bot.closeOverlay} />
       )}
 
       {pendingUpi && !upiOpen && (

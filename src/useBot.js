@@ -14,12 +14,18 @@ import {
   fmt,
   newOrderId,
   newVoucherCode,
-  offersForBrand,
+  addItem,
+  itemCount,
+  itemsSubtotal,
+  lineItems,
+  offersForItems,
+  orderTitle,
   payModeOptions,
   priceOrder,
   validatePromo,
 } from './data';
 
+const itemLabel = (i) => `${brandById(i.brandId).name}, ${fmt(i.denom)} × ${i.qty}`;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const today = () => new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -132,7 +138,7 @@ export function useBot({ entry, mode, startPoints }) {
     }
     if (isMenu()) {
       st.current.draft.trackList = list.map((o) => o.id);
-      const lines = list.map((o, i) => `${i + 1}. ${o.id}, ${brandById(o.brandId).name}, ${fmt(o.total)} (${STATUS_LABEL[o.status]})`);
+      const lines = list.map((o, i) => `${i + 1}. ${o.id}, ${orderTitle(o)}, ${fmt(o.total)} (${STATUS_LABEL[o.status]})`);
       ask('menu_track', `Your recent orders:\n${lines.join('\n')}\n\nReply with a number to see details, or 0 for the menu.`);
       return;
     }
@@ -143,7 +149,7 @@ export function useBot({ entry, mode, startPoints }) {
       text: 'Your recent orders. Tap the button to pick one:',
       rows: list.map((o) => ({
         id: 'order:' + o.id,
-        label: `${o.id}, ${brandById(o.brandId).name}`,
+        label: `${o.id}, ${orderTitle(o)}`,
         sub: `${fmt(o.total)}, ${STATUS_LABEL[o.status]}`,
         icon: '🧾',
       })),
@@ -157,11 +163,10 @@ export function useBot({ entry, mode, startPoints }) {
       return;
     }
     if (isMenu()) {
-      const b = brandById(o.brandId);
       const code = o.codes?.length ? `\nCode: ${o.codes.join(', ')}` : '';
       ask(
         'menu_after',
-        `Order ${o.id}\n${b.name}, ${fmt(o.denom)} × ${o.qty}\nStatus: ${STATUS_LABEL[o.status]}${code}\n\nReply 0 for the main menu.`
+        `Order ${o.id}\n${lineItems(o).map(itemLabel).join('\n')}\nStatus: ${STATUS_LABEL[o.status]}${code}\n\nReply 0 for the main menu.`
       );
       return;
     }
@@ -189,13 +194,11 @@ export function useBot({ entry, mode, startPoints }) {
 
   // A carousel button can only send a quick reply, and a Flow can only be opened
   // from a button in an interactive message. So "View" sends this message first.
-  // Product details: an image card plus a list to pick the amount (WhatsApp has no
-  // dropdown in a chat message). Picking an amount sends a cart, like the native cart flow.
+  // Product details: an image card with a button that opens the product page.
+  // Adding from there sends a cart message, like WhatsApp's native cart flow.
   const showBrand = (id, note) => {
     const b = brandById(id);
     const s = st.current;
-    s.cart = null;
-    setCart(null);
     if (isMenu()) {
       s.draft.brandId = id;
       say({ kind: 'text', text: `*${b.name} gift voucher*\nFrom ${fmt(DENOMS[0])}. ${PRODUCT_BLURB}${note ? `\n${note}` : ''}` });
@@ -206,27 +209,29 @@ export function useBot({ entry, mode, startPoints }) {
       brandId: id,
       from: fmt(DENOMS[0]),
       text: `${PRODUCT_BLURB}${note ? `\n${note}` : ''}`,
-      title: 'Choose amount',
-      rows: DENOMS.map((d) => ({ id: `denom:${id}:${d}`, label: fmt(d), sub: `${b.name} gift voucher`, icon: '🎟️' })),
     });
   };
 
-  const cartText = (c) => {
-    const b = brandById(c.brandId);
-    return `${c.qty} x ${b.name} gift voucher (${fmt(c.denom)})\n\nCart total: ${fmt(c.denom * c.qty)}`;
+  const cartText = (items) =>
+    `${items.map((i) => `${i.qty} x ${brandById(i.brandId).name} gift voucher (${fmt(i.denom)})`).join('\n')}\n\nCart total: ${fmt(itemsSubtotal(items))}`;
+  const promoFor = (items) => {
+    const p = st.current.promo;
+    return p && items.some((i) => i.brandId === p.brandId) ? p : null;
   };
 
-  const addToCart = (brandId, denom) => {
-    const c = { brandId, denom, qty: 1 };
-    st.current.cart = c;
-    setCart(c);
-    addMsg({ from: 'user', kind: 'cartSent', ...c });
-    const p = st.current.promo;
-    const offer = p && p.brandId === brandId ? `\nOffer ${p.code} will be applied at checkout.` : '';
+  const putCart = (items) => {
+    st.current.cart = items;
+    setCart(items);
+  };
+
+  const addToCart = (brandId, denom, qty = 1) => {
+    const items = addItem(st.current.cart || [], { brandId, denom, qty });
+    putCart(items);
+    addMsg({ from: 'user', kind: 'cartSent', items });
+    const p = promoFor(items);
     say({
       kind: 'cartAdded',
-      brandId,
-      text: `Hooray! 🎉 The product has been added to your cart.\n\n${cartText(c)}${offer}`,
+      text: `Hooray! 🎉 The product has been added to your cart.\n\n${cartText(items)}${p ? `\nOffer ${p.code} will be applied at checkout.` : ''}`,
       buttons: [{ id: 'buy', label: 'Continue shopping' }],
     });
   };
@@ -243,20 +248,17 @@ export function useBot({ entry, mode, startPoints }) {
     showBrand(PROMO.brandId, `Offer ${PROMO.code} applied 🎉 ${PROMO.label} on ${b.name}.`);
   };
 
-  const openFlow = (brandId) => {
-    const p = st.current.promo;
-    const c = st.current.cart;
-    setOverlay({ type: 'flow', brandId, promo: p && p.brandId === brandId ? p : null, cart: c && c.brandId === brandId ? c : null });
+  const openFlow = () => {
+    const items = st.current.cart;
+    if (items?.length) setOverlay({ type: 'flow', items, promo: promoFor(items) });
   };
 
   // ---------- orders and payment ----------
   const createOrder = (d) => {
-    const price = priceOrder({ denom: d.denom, qty: d.qty, promo: d.promo, payMode: d.payMode, points: live.current.points });
+    const price = priceOrder({ items: d.items, promo: d.promo, payMode: d.payMode, points: live.current.points });
     const o = {
       id: newOrderId(),
-      brandId: d.brandId,
-      denom: d.denom,
-      qty: d.qty,
+      items: d.items,
       gift: d.gift,
       message: d.message || '',
       payMode: d.payMode,
@@ -272,14 +274,12 @@ export function useBot({ entry, mode, startPoints }) {
 
   const onFlowSubmit = (d) => {
     setOverlay(null);
-    setCart(null);
-    st.current.cart = null;
-    const b = brandById(d.brandId);
+    putCart(null);
     addMsg({
       from: 'user',
       kind: 'flowReply',
       title: 'Buy Voucher',
-      lines: [`${b.name}, ${fmt(d.denom)} × ${d.qty}`, `Payment: ${MODE_LABEL[d.payMode]}`],
+      lines: [...d.items.map(itemLabel), `Payment: ${MODE_LABEL[d.payMode]}`],
     });
     const o = createOrder(d);
     st.current.draft.orderId = o.id;
@@ -377,9 +377,8 @@ export function useBot({ entry, mode, startPoints }) {
 
   const completeOrder = (id, method, saved = 0) => {
     const o = findOrder(id);
-    const b = brandById(o.brandId);
     patchOrder(id, { status: 'processing', paidWith: method });
-    const codes = Array.from({ length: o.qty }, newVoucherCode);
+    const codes = Array.from({ length: lineItems(o).reduce((n, i) => n + i.qty, 0) }, newVoucherCode);
     const received = {
       kind: 'text',
       text: `Payment received via ${method} ✅${saved ? `\nOffer savings: ${fmt(saved)}` : ''}\nGenerating your voucher…`,
@@ -391,7 +390,7 @@ export function useBot({ entry, mode, startPoints }) {
       say(received, {
         kind: 'text',
         delay: 1500,
-        text: `Your voucher is ready 🎉\n${b.name}, ${fmt(o.denom)} × ${o.qty}\nCode: ${codes.join(', ')}\nValid for 12 months. ${to}\n\nReply 0 for the main menu.`,
+        text: `Your voucher is ready 🎉\n${lineItems(o).map(itemLabel).join('\n')}\nCode: ${codes.join(', ')}\nValid for 12 months. ${to}\n\nReply 0 for the main menu.`,
         after: () => {
           deliver();
           st.current.step = 'menu_after';
@@ -460,6 +459,15 @@ export function useBot({ entry, mode, startPoints }) {
   const openPay = (orderId) => setOverlay({ type: 'pay', orderId });
   const closeOverlay = () => setOverlay(null);
 
+  // Coupons live on the payment page: re-price an unpaid order when one is applied or removed.
+  const applyPromo = (orderId, promo) => {
+    const o = findOrder(orderId);
+    if (!o || o.status !== 'pending_payment' || o.pointsPaid) return;
+    const price = priceOrder({ items: lineItems(o), promo, payMode: 'online', points: 0 });
+    const pointsUsed = o.payMode === 'points' ? price.total : o.payMode === 'split' ? Math.min(o.pointsUsed, price.total) : 0;
+    patchOrder(orderId, { promo, promoDiscount: price.promoDiscount, total: price.total, pointsUsed, onlineDue: price.total - pointsUsed });
+  };
+
   // ---------- menu mode purchase steps ----------
   const menuBuy = () => {
     st.current.draft = {};
@@ -478,8 +486,7 @@ export function useBot({ entry, mode, startPoints }) {
     ask('menu_denom', `Choose an amount:\n${DENOMS.map((d, i) => `${i + 1}. ${fmt(d)}`).join('\n')}`);
   const askQty = () => ask('menu_qty', 'How many vouchers? Reply with a number from 1 to 10.');
   const askRecipient = () => ask('menu_recipient', 'Who is this for?\n1. Me\n2. Someone else (gift)');
-  const activePromo = (d) =>
-    d.promo || (st.current.promo && st.current.promo.brandId === d.brandId ? st.current.promo : null);
+  const activePromo = (d) => d.promo || promoFor(st.current.cart || []);
 
   // Menu mode: ask for a promo code unless one is already applied (for example from the banner)
   const askPromo = () => {
@@ -489,16 +496,15 @@ export function useBot({ entry, mode, startPoints }) {
       say({ kind: 'text', text: `Offer ${existing.code} applied 🎉` });
       return askRecipient();
     }
-    const b = brandById(d.brandId);
     return ask(
       'menu_promo',
-      `Have a promo code for ${b.name}? Type it now.\nReply OFFERS to see available offers, or SKIP to continue without one.`
+      `Have a promo code? Type it now.\nReply OFFERS to see available offers, or SKIP to continue without one.`
     );
   };
 
   const askPayMode = () => {
     const d = st.current.draft;
-    const base = priceOrder({ denom: d.denom, qty: d.qty, promo: activePromo(d), payMode: 'online', points: live.current.points });
+    const base = priceOrder({ items: st.current.cart, promo: activePromo(d), payMode: 'online', points: live.current.points });
     const opts = payModeOptions(base.total, live.current.points).filter((o) => o.ok);
     d.payOptions = opts.map((o) => o.id);
     ask(
@@ -510,11 +516,11 @@ export function useBot({ entry, mode, startPoints }) {
   const menuSummary = () => {
     const d = st.current.draft;
     const promo = activePromo(d);
-    const price = priceOrder({ denom: d.denom, qty: d.qty, promo, payMode: d.payMode, points: live.current.points });
-    const b = brandById(d.brandId);
+    const items = st.current.cart;
+    const price = priceOrder({ items, promo, payMode: d.payMode, points: live.current.points });
     const lines = [
       'Please confirm your order:',
-      `${b.name}, ${fmt(d.denom)} × ${d.qty}`,
+      ...items.map(itemLabel),
       `For: ${d.gift ? `${d.gift.name} (+91 ${d.gift.phone})` : 'Me'}`,
       `Payment: ${MODE_LABEL[d.payMode]}`,
     ];
@@ -560,20 +566,23 @@ export function useBot({ entry, mode, startPoints }) {
       }
       case 'menu_qty':
         if (!(n >= 1 && n <= 10)) return bad();
-        s.draft.qty = n;
-        setCart({ brandId: s.draft.brandId, denom: s.draft.denom, qty: n });
-        say({ kind: 'text', text: `Added to your cart 🛒\n${cartText(s.draft)}` });
-        return askPromo();
+        putCart(addItem(s.cart || [], { brandId: s.draft.brandId, denom: s.draft.denom, qty: n }));
+        say({ kind: 'text', text: `Added to your cart 🛒\n${cartText(s.cart)}` });
+        return ask('menu_more', '1. Add another voucher\n2. Checkout');
+      case 'menu_more':
+        if (n === 1) return menuBuy();
+        if (n === 2) return askPromo();
+        return bad();
       case 'menu_promo': {
         if (/^skip$/i.test(t)) return askRecipient();
         if (/^offers?$/i.test(t)) {
-          const lines = offersForBrand(s.draft.brandId).map((o) => `${o.code}: ${o.label}. ${o.note}`);
+          const lines = offersForItems(s.cart).map((o) => `${o.code}: ${o.label}. ${o.note}`);
           return say({ kind: 'text', text: `Available offers:\n${lines.join('\n')}\n\n${s.lastPrompt}` });
         }
-        const r = validatePromo(t, s.draft.brandId, s.draft.denom * s.draft.qty);
+        const r = validatePromo(t, s.cart);
         if (!r.ok) return say({ kind: 'text', text: `${r.error}. Try another code, or reply SKIP.` });
         s.draft.promo = r.promo;
-        say({ kind: 'text', text: `${r.promo.code} applied 🎉 You save ${fmt(priceOrder({ denom: s.draft.denom, qty: s.draft.qty, promo: r.promo, payMode: 'online', points: 0 }).promoDiscount)}.` });
+        say({ kind: 'text', text: `${r.promo.code} applied 🎉 You save ${fmt(priceOrder({ items: s.cart, promo: r.promo, payMode: 'online', points: 0 }).promoDiscount)}.` });
         return askRecipient();
       }
       case 'menu_recipient':
@@ -599,14 +608,14 @@ export function useBot({ entry, mode, startPoints }) {
       case 'menu_confirm': {
         if (n === 2) {
           s.draft = {};
-          setCart(null);
+          putCart(null);
           say({ kind: 'text', text: 'Order cancelled.' });
           return mainMenu(false);
         }
         if (n !== 1) return bad();
         const d = s.draft;
-        setCart(null);
-        const o = createOrder({ ...d, promo: activePromo(d), message: '' });
+        const o = createOrder({ ...d, items: s.cart, promo: activePromo(d), message: '' });
+        putCart(null);
         s.draft = { orderId: o.id };
         const payWord = o.pointsUsed > 0 ? 'pay with points' : 'pay now';
         return ask('menu_pay', `Order ${o.id} created ✅\n1. ${payWord[0].toUpperCase() + payWord.slice(1)}\n2. Cancel order\n0. Main menu`);
@@ -629,11 +638,9 @@ export function useBot({ entry, mode, startPoints }) {
   // ---------- inputs from the UI ----------
   // Taps on buttons, list rows and carousel cards.
   const act = (id, label) => {
-    const [k, v, w] = id.split(':');
-    if (k !== 'denom') userSay(label);
+    const [k, v] = id.split(':');
+    userSay(label);
     switch (k) {
-      case 'denom':
-        return addToCart(v, Number(w));
       case 'buy':
         return buyIntro();
       case 'track':
@@ -722,6 +729,9 @@ export function useBot({ entry, mode, startPoints }) {
     act,
     onText,
     openFlow,
+    applyPromo,
+    addToCart,
+    setCartItems: (items) => putCart(items.length ? items : null),
     openPay,
     closeOverlay,
     onFlowSubmit,

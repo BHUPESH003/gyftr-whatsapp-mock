@@ -296,3 +296,29 @@
 .wa--device .fab-cart { bottom: 118px; }
 .wa--full .fab-cart { bottom: calc(80px + var(--safe-bottom)); }
 .fab-badge { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
+
+/* product page and cart editing */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.chip { padding: 8px 16px; border: 1.5px solid #c6ccd0; border-radius: 20px; background: #fff; font-size: 16px; font-weight: 500; }
+.chip.on { border-color: var(--teal); background: #e3f6ef; color: #0a6b58; }
+.stepper { display: inline-flex; align-items: center; margin-top: 8px; border: 1.5px solid #c6ccd0; border-radius: 22px; }
+.stepper button { width: 42px; height: 40px; border: 0; background: none; font-size: 22px; }
+.stepper button:disabled { opacity: 0.35; }
+.stepper b { min-width: 28px; text-align: center; font-size: 17px; }
+.stepper.sm { align-self: flex-start; margin-top: 4px; }
+.stepper.sm button { width: 34px; height: 30px; font-size: 18px; }
+.how { margin: 6px 0 0; padding-left: 20px; font-size: 14px; line-height: 20px; color: var(--sub); }
+
+/* Gyftr logo, avatar and the coupons block on the payment page */
+img.avatar { object-fit: cover; background: #fff; }
+.pg-logo { display: block; height: 34px; width: auto; margin-bottom: 12px; }
+.pg-coupons { margin-bottom: 18px; padding: 14px; border: 1px solid #dfe3e6; border-radius: 14px; }
+.pg-coupons h3 { margin: 0 0 10px; font-size: 16px; }
+.pg-applied { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 10px; border-radius: 10px; background: #e3f6ef; color: #0a6b58; font-size: 14px; }
+.pg-applied button, .pg-offer button, .pg-code button { border: 0; background: none; color: var(--pg); font-size: 15px; font-weight: 600; }
+.pg-offer button:disabled, .pg-code button:disabled { color: #a3adb3; }
+.pg-code { display: flex; gap: 8px; align-items: center; padding: 4px 6px 4px 12px; border: 1px solid #cfd6da; border-radius: 10px; }
+.pg-code input { flex: 1; min-width: 0; padding: 8px 0; border: 0; outline: 0; background: none; font-size: 16px; }
+.pg-offer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0 0; margin-top: 10px; border-top: 0.5px solid #ececec; }
+.pg-offer-txt { display: flex; flex-direction: column; gap: 1px; }
+.pg-offer-txt small { font-size: 13px; color: #5c6870; }
