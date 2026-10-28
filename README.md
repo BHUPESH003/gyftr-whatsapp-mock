@@ -26,7 +26,7 @@ Demo values: points OTP is `123456`. Any `name@bank` works as a UPI ID.
 ## The journey
 
 1. Entry: user says hi, or taps a marketing template banner.
-2. Main menu: Buy a voucher, Track order, Check balance (three buttons, the WhatsApp maximum).
+2. Main menu: Buy a voucher, View previous orders, Check loyalty points balance (three buttons, the WhatsApp maximum).
 3. Browse: brand carousel plus a category list. "View" sends a quick reply, then a message with a "Buy voucher" button that opens the Flow.
 4. Flow (3 screens): denomination, quantity and gift details, then payment mode, then summary.
 5. Payment mode:
@@ -36,7 +36,7 @@ Demo values: points OTP is `123456`. Any `name@bank` works as a UPI ID.
 6. Web view: lists the offer per method.
    - **UPI**: closes and a UPI payment request message lands in the chat.
    - **Card or netbanking**: goes straight to the bank or gateway page, then back to the chat.
-7. Voucher message with copyable codes. Track order and balance work at any time.
+7. Voucher message with copyable codes. View previous orders and loyalty points balance work at any time.
 
 ## Promo codes and offers
 
