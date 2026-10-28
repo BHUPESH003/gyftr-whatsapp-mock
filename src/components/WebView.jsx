@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react';
-import { BANKS, OFFERS, PAY_METHODS, UPI_APPS, brandById, fmt, lineItems, offerValue } from '../data';
+import { BANKS, OFFERS, PAY_METHODS, brandById, fmt, lineItems, offerValue } from '../data';
 import { ChevronLeft, ChevronRight, Close, Compass, Dots, Lock, Reload, Share } from './icons';
 
-const METHOD_NAME = { upi: 'UPI', debit: 'Debit card', credit: 'Credit card', netbanking: 'Netbanking' };
+const OTHER = PAY_METHODS.filter((m) => m.id !== 'upi');
+const METHOD_NAME = { debit: 'Debit card', credit: 'Credit card', netbanking: 'Netbanking' };
 
 /**
  * Stands in for the in-app browser WhatsApp opens from a "View offers and pay" button.
  *  - UPI: closes and the chat gets a UPI request message.
  *  - Card or netbanking: goes straight to the bank or gateway page, then back to the chat.
  */
-export default function WebView({ order, onUpi, onGateway, onClose }) {
+export default function WebView({ order, onGateway, onClose }) {
   const [stage, setStage] = useState('offers'); // offers | redirecting | gateway | done
-  const [method, setMethod] = useState('upi');
-  const [app, setApp] = useState(UPI_APPS[0]);
+  const [method, setMethod] = useState('debit');
   const [bank, setBank] = useState(BANKS[0]);
   const [err, setErr] = useState('');
 
   const items = lineItems(order);
   const due = order.onlineDue;
-  const chosen = PAY_METHODS.find((m) => m.id === method);
+  const chosen = OTHER.find((m) => m.id === method);
   const offer = OFFERS.find((o) => o.method === chosen.offer);
   const value = offerValue(offer, due);
   const payable = offer.kind === 'instant' ? due - value : due;
@@ -39,10 +39,6 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
       : { host: 'secure.pg-demo.example', title: 'Secure card payment' };
 
   const submit = () => {
-    if (method === 'upi') {
-      onUpi({ orderId: order.id, app, payable, saved: value, kind: offer.kind });
-      return;
-    }
     setStage('redirecting');
   };
 
@@ -89,7 +85,7 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
 
             <h3 className="pg-sub">Choose payment method</h3>
             <div className="pg-tiles" role="radiogroup" aria-label="Payment method">
-              {PAY_METHODS.map((m) => (
+              {OTHER.map((m) => (
                 <button key={m.id} className={'pg-tile ' + (m.id === method ? 'on' : '')} role="radio" aria-checked={m.id === method} onClick={() => { setMethod(m.id); setErr(''); }}>
                   {m.label}
                 </button>
@@ -100,19 +96,6 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
               <small className={value ? 'good' : ''}>
                 {value ? `${offer.title}. You save ${fmt(value)}` : `${offer.title}. Add ${fmt(offer.min - due)} more to unlock`}
               </small>
-              {method === 'upi' && (
-                <>
-                  <div className="pg-apps" role="radiogroup" aria-label="UPI app">
-                    {UPI_APPS.map((n) => (
-                      <button key={n} className="pg-app" role="radio" aria-checked={n === app} onClick={() => setApp(n)}>
-                        <span>{n}</span>
-                        <span className={'pg-radio ' + (n === app ? 'on' : '')} />
-                      </button>
-                    ))}
-                  </div>
-                  <small>We will send a payment request to the app you pick.</small>
-                </>
-              )}
               {method === 'netbanking' && (
                 <>
                   <label>
@@ -143,7 +126,7 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
                 <b>{fmt(payable)}</b>
               </div>
               <button className="pg-primary" onClick={submit}>
-                {method === 'upi' ? 'Send UPI request' : `Pay ${fmt(payable)}`}
+                Pay {fmt(payable)}
               </button>
             </div>
           </>

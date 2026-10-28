@@ -382,32 +382,6 @@ function Message({ m, tail, orders, a }) {
       );
     }
 
-    case 'upiRequest':
-      return (
-        <div className="stack">
-          <Bubble m={m} tail={tail}>
-            <Lines
-              rows={[
-                ['*UPI payment request sent*'],
-                [''],
-                ['Amount', fmt(m.amount)],
-                ['Via', m.app],
-                m.saved > 0 ? [m.offerKind === 'cashback' ? 'Cashback later' : 'Offer saving', fmt(m.saved)] : null,
-                [''],
-                [
-                  m.state === 'pending'
-                    ? 'Open your UPI app and approve the request within 5 minutes.'
-                    : m.state === 'approved'
-                    ? '✅ Approved'
-                    : '❌ Declined',
-                ],
-              ]}
-            />
-          </Bubble>
-          {m.state === 'pending' && <WBtn onClick={() => a.onOpenPay(m.orderId)}>Change payment method</WBtn>}
-        </div>
-      );
-
     default:
       return null;
   }

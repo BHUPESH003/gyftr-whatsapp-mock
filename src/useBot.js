@@ -73,8 +73,6 @@ export function useBot({ entry, mode, startPoints }) {
   const findOrder = (id) => live.current.orders.find((o) => o.id === id);
 
   const addMsg = (m) => setMessages((p) => [...p, { id: ++uid, time: clock(), ...m }]);
-  const patchUpi = (orderId, patch) =>
-    setMessages((p) => p.map((m) => (m.kind === 'upiRequest' && m.orderId === orderId ? { ...m, ...patch } : m)));
   const userSay = (text) => addMsg({ from: 'user', kind: 'text', text });
 
   // Bot messages go through a queue so they arrive in order with a typing pause.
@@ -494,32 +492,15 @@ export function useBot({ entry, mode, startPoints }) {
     });
   };
 
-  // Called by the payment web view.
-  // UPI: the web view closes and a UPI request message lands in the chat.
-  const onUpiPay = ({ orderId, app, payable, saved, kind }) => {
-    setOverlay(null);
-    patchOrder(orderId, { payable, saved, offerKind: kind });
-    if (isMenu()) {
-      st.current.draft.orderId = orderId;
-      st.current.step = 'menu_upi';
+  // Called by the in-chat payment flow. On success the receipt stays open while the chat gets the voucher.
+  const onPayment = ({ orderId, ok, method, saved = 0, payable, kind }) => {
+    if (!ok) {
+      setOverlay(null);
+      payFailed(orderId);
+      return;
     }
-    say({ kind: 'upiRequest', orderId, app, amount: payable, saved, offerKind: kind, state: 'pending' });
-  };
-
-  // Mock-only: simulates the customer approving or declining in their UPI app.
-  const onUpiResult = (orderId, ok) => {
-    const o = findOrder(orderId);
-    if (!o || o.status !== 'pending_payment') return;
-    patchUpi(orderId, { state: ok ? 'approved' : 'declined' });
-    if (ok) completeOrder(orderId, 'UPI', o.saved || 0);
-    else payFailed(orderId);
-  };
-
-  // Called by the payment web view for cards and netbanking (bank or gateway page).
-  const onGatewayDone = ({ orderId, ok, method, saved }) => {
-    setOverlay(null);
-    if (ok) completeOrder(orderId, method, saved);
-    else payFailed(orderId);
+    patchOrder(orderId, { payable, saved, offerKind: kind });
+    completeOrder(orderId, method, saved);
   };
 
   const openPay = (orderId) => setOverlay({ type: 'pay', orderId });
@@ -698,8 +679,6 @@ export function useBot({ entry, mode, startPoints }) {
         if (n === 1) return startPayment(s.draft.orderId);
         if (n === 2) return cancelOrder(s.draft.orderId);
         return bad();
-      case 'menu_upi':
-        return say({ kind: 'text', text: 'Waiting for your UPI approval. Open your UPI app to approve the request, or reply 0 for the menu.' });
       case 'menu_track': {
         const id = s.draft.trackList?.[n - 1];
         return id ? showOrder(id) : bad();
@@ -826,8 +805,6 @@ export function useBot({ entry, mode, startPoints }) {
     openPay,
     closeOverlay,
     onFlowSubmit,
-    onUpiPay,
-    onUpiResult,
-    onGatewayDone,
+    onPayment,
   };
 }

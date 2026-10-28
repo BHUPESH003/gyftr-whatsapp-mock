@@ -5,8 +5,8 @@ import { ChevronLeft } from './icons';
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
 
 /** A stand-in for the customer's own UPI app, so the collect request can be approved in the demo. */
-export default function UpiApp({ amount, app, onApprove, onDecline, onClose }) {
-  const [stage, setStage] = useState('request'); // request | pin | processing | done
+export default function UpiApp({ amount, app, startAtPin, onApprove, onDecline, onClose }) {
+  const [stage, setStage] = useState(startAtPin ? 'pin' : 'request'); // request | pin | processing | done
   const [pin, setPin] = useState('');
   const approve = useRef(onApprove);
   approve.current = onApprove;
@@ -38,7 +38,7 @@ export default function UpiApp({ amount, app, onApprove, onDecline, onClose }) {
     <div className="upiapp">
       <div className="upi-top">
         {stage === 'request' || stage === 'pin' ? (
-          <button className="hbtn" onClick={stage === 'pin' ? () => { setPin(''); setStage('request'); } : onClose} aria-label="Back">
+          <button className="hbtn" onClick={stage === 'pin' && !startAtPin ? () => { setPin(''); setStage('request'); } : onClose} aria-label="Back">
             <ChevronLeft size={24} />
           </button>
         ) : <span className="hbtn" />}

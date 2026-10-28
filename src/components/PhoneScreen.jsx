@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useBot } from '../useBot';
-import { fmt } from '../data';
+import { addItem, itemCount } from '../data';
 import Chat, { Composer } from './Chat';
 import FlowSheet from './FlowSheet';
 import CartSheet from './CartSheet';
 import CatalogSheet from './CatalogSheet';
 import ListSheet from './ListSheet';
 import ProductSheet from './ProductSheet';
-import UpiApp from './UpiApp';
-import WebView from './WebView';
-import { BatteryIcon, ChevronLeft, Phone, SignalIcon, Verified, WifiIcon } from './icons';
+import PayFlow from './PayFlow';
+import { BatteryIcon, CartIcon, ChevronLeft, Phone, SignalIcon, Verified, WifiIcon } from './icons';
 
 function StatusBar() {
   return (
@@ -28,12 +27,28 @@ function StatusBar() {
 export default function PhoneScreen({ entry, mode, startPoints, device }) {
   const bot = useBot({ entry, mode, startPoints });
   const [list, setList] = useState(null);
-  const [cartOpen, setCartOpen] = useState(null); // { items }
-  const [productId, setProductId] = useState(null);
+  const [cartOpen, setCartOpen] = useState(null); // read-only "View sent cart": { items }
+  const [product, setProduct] = useState(null); // { id, src: 'bot' | 'catalog' }
   const [catalog, setCatalog] = useState(null); // { items? }
-  const [upiOpen, setUpiOpen] = useState(false);
+  // The customer's own WhatsApp cart, built in the catalogue. The bot cart is separate and lives in messages.
+  const [wa, setWa] = useState([]);
+  const [waOpen, setWaOpen] = useState(false);
 
-  const pendingUpi = bot.messages.find((m) => m.kind === 'upiRequest' && m.state === 'pending');
+  const changeWa = (it, d) =>
+    setWa((w) => {
+      const hit = w.find((x) => x.brandId === it.brandId && x.denom === it.denom);
+      const qty = (hit?.qty || 0) + d;
+      if (qty <= 0) return w.filter((x) => x !== hit);
+      return hit ? w.map((x) => (x === hit ? { ...x, qty: Math.min(10, qty) } : x)) : [...w, { ...it, qty }];
+    });
+  const sendWa = () => {
+    const sent = wa;
+    setWa([]);
+    setWaOpen(false);
+    setCatalog(null);
+    bot.addItemsToCart(sent);
+  };
+
   const payOrder = bot.overlay?.type === 'pay' ? bot.orders.find((o) => o.id === bot.overlay.orderId) : null;
 
   return (
@@ -59,7 +74,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         onOpenPay={bot.openPay}
         onOpenList={setList}
         onOpenCart={setCartOpen}
-        onOpenProduct={setProductId}
+        onOpenProduct={(id) => setProduct({ id, src: 'bot' })}
         onPay={bot.startPayment}
         onOpenCatalog={(items) => setCatalog({ items })}
       />
@@ -81,16 +96,36 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
       {catalog && (
         <CatalogSheet
           items={catalog.items}
+          cart={wa}
           onClose={() => setCatalog(null)}
-          onPick={(id) => { setCatalog(null); setProductId(id); }}
-          onSend={(sent) => { setCatalog(null); bot.addItemsToCart(sent); }}
+          onPick={(id) => setProduct({ id, src: 'catalog' })}
+          onChange={changeWa}
+          onViewCart={() => setWaOpen(true)}
         />
       )}
-      {productId && (
+      {product && (
         <ProductSheet
-          brandId={productId}
-          onClose={() => setProductId(null)}
-          onAdd={(id, denom, qty) => { setProductId(null); bot.addToCart(id, denom, qty); }}
+          brandId={product.id}
+          onClose={() => setProduct(null)}
+          onAdd={(id, denom, qty) => {
+            setProduct(null);
+            if (product.src === 'catalog') setWa((w) => addItem(w, { brandId: id, denom, qty }));
+            else bot.addToCart(id, denom, qty);
+          }}
+        />
+      )}
+      {wa.length > 0 && !catalog && (
+        <button className="fab-cart" onClick={() => setWaOpen(true)} aria-label={`Cart, ${itemCount(wa)} items`}>
+          <CartIcon size={24} />
+          <span className="fab-badge">{itemCount(wa)}</span>
+        </button>
+      )}
+      {waOpen && (
+        <CartSheet
+          items={wa}
+          onChange={(items) => { setWa(items); if (!items.length) setWaOpen(false); }}
+          onSend={sendWa}
+          onClose={() => setWaOpen(false)}
         />
       )}
       {bot.overlay?.type === 'flow' && (
@@ -102,29 +137,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
           onSubmit={bot.onFlowSubmit}
         />
       )}
-      {payOrder && (
-        <WebView order={payOrder} onUpi={bot.onUpiPay} onGateway={bot.onGatewayDone} onClose={bot.closeOverlay} />
-      )}
-
-      {pendingUpi && !upiOpen && (
-        <button className="notif" onClick={() => setUpiOpen(true)}>
-          <span className="notif-app">₹</span>
-          <span className="notif-txt">
-            <span className="notif-top"><b>Pay Demo</b><small>now</small></span>
-            <span className="notif-title">Payment request</span>
-            <span className="notif-body">GYFTR DEMO is requesting {fmt(pendingUpi.amount)}. Tap to review.</span>
-          </span>
-        </button>
-      )}
-      {pendingUpi && upiOpen && (
-        <UpiApp
-          amount={pendingUpi.amount}
-          app={pendingUpi.app}
-          onClose={() => setUpiOpen(false)}
-          onDecline={() => { setUpiOpen(false); bot.onUpiResult(pendingUpi.orderId, false); }}
-          onApprove={() => { setUpiOpen(false); bot.onUpiResult(pendingUpi.orderId, true); }}
-        />
-      )}
+      {payOrder && <PayFlow order={payOrder} onPayment={bot.onPayment} onClose={bot.closeOverlay} />}
     </div>
   );
 }

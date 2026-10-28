@@ -355,3 +355,53 @@ img.avatar { object-fit: cover; background: #fff; }
 .pg-tile.on { border-color: var(--pg); box-shadow: 0 0 0 1px var(--pg); background: #f4f3ff; }
 .pg-panel { margin-top: 12px; padding: 12px 0 0; }
 .pg-illus { margin: 10px 2px 0; font-size: 12.5px; color: #6b7780; text-align: center; }
+
+/* WhatsApp cart icon (catalogue header and floating) */
+.fab-cart { position: absolute; z-index: 20; right: 14px; bottom: 96px; display: grid; place-items: center; width: 52px; height: 52px; border: 0; border-radius: 50%; background: var(--teal); color: #fff; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35); animation: fade 0.2s; }
+.wa--device .fab-cart { bottom: 118px; }
+.wa--full .fab-cart { bottom: calc(80px + var(--safe-bottom)); }
+.fab-badge { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
+.cart-btn { position: relative; justify-self: end; margin-right: 6px; }
+.cart-btn:disabled { opacity: 0.35; }
+.cart-btn .fab-badge { top: 2px; right: -2px; }
+
+/* in-chat payment (Order details, method sheet, review, receipt) */
+.payflow { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; background: #f4f6f7; animation: rise 0.24s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.pf-top { flex: none; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; height: calc(54px + var(--safe-top)); padding-top: var(--safe-top); background: var(--bar, #fff); text-align: center; border-bottom: 0.5px solid #dcdfe1; }
+.pf-top b { font-size: 18px; font-weight: 600; }
+.pf-body { flex: 1; min-height: 0; overflow-y: auto; }
+.pf-receipt { padding: 0 0 24px; background: #fff; }
+.pf-banner { display: flex; gap: 12px; align-items: center; padding: 14px 16px; background: #d9f6ea; }
+.pf-banner span:last-child { display: flex; flex-direction: column; }
+.pf-banner small { color: #3b4a54; font-size: 14px; }
+.pf-check { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 20px; }
+.pf-merchant { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 22px 16px 14px; }
+.pf-merchant img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; }
+.pf-merchant b { font-size: 20px; }
+.pf-merchant small { color: var(--sub); font-size: 14px; }
+.pf-chip { margin-top: 6px; padding: 4px 14px; border-radius: 14px; background: #eef1f3; color: var(--sub); font-size: 14px; }
+.pf-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.pf-iname { flex: 1; display: flex; flex-direction: column; font-size: 15px; line-height: 20px; }
+.pf-iname small { color: var(--sub); font-size: 14px; }
+.pf-lines { margin: 8px 16px 0; padding-top: 6px; border-top: 0.5px solid #e4e7e9; font-size: 14.5px; color: var(--sub); }
+.pf-lines > div { display: flex; justify-content: space-between; padding: 6px 0; }
+.pf-lines .pf-total { padding-top: 10px; color: #111; font-size: 16px; }
+.pf-paid { display: flex; align-items: center; gap: 14px; margin-top: 14px; padding: 14px 16px; background: #f4f6f7; }
+.pf-paid span:last-child { display: flex; flex-direction: column; }
+.pf-paid small { color: var(--sub); font-size: 13.5px; }
+.pf-rupee { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid #8a949b; color: #5c6870; }
+.pf-help { margin: 14px 0 0; text-align: center; font-size: 13px; color: var(--sub); }
+.pf-help span { color: var(--link); }
+.pf-scrim { position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-end; background: rgba(0, 0, 0, 0.45); animation: fade 0.2s; }
+.pf-sheet { max-height: 88%; }
+.sheet-head.left { display: flex; align-items: center; gap: 4px; padding-right: 16px; text-align: left; }
+.sheet-head.left b { flex: 1; }
+.pf-method { gap: 14px; }
+.pf-method .opt-txt { flex: 1; }
+.pf-badge { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: #fff; font-size: 17px; font-weight: 700; }
+.pf-to { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 0.5px solid #ececec; }
+.pf-to img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.pf-to span:last-child { display: flex; flex-direction: column; line-height: 1.3; }
+.pf-to small { color: var(--sub); font-size: 13.5px; }
+.pf-upi { margin: 10px 0 0; text-align: center; font-size: 12px; color: var(--sub); }
+.pf-foot { flex: none; padding: 10px 16px calc(12px + var(--safe-bottom)); background: #fff; border-top: 0.5px solid #ececec; }

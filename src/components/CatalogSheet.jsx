@@ -1,33 +1,45 @@
 import { useState } from 'react';
-import { BRANDS, CATEGORIES, brandById, fmt, itemsSubtotal } from '../data';
+import { BRANDS, CATEGORIES, brandById, fmt, itemCount, itemsSubtotal } from '../data';
 import BrandArt from './BrandArt';
-import { Close } from './icons';
+import { CartIcon, Close } from './icons';
 
 /**
- * WhatsApp's catalog view.
+ * WhatsApp's catalog view, with the customer's WhatsApp cart.
  *  - Browse (no items): every brand, with category chips. Tapping one opens its product page.
- *  - Items (a multi-product message): only those items, added to a WhatsApp cart that is then sent.
+ *  - Items (a multi-product message): only those items, added straight to the cart.
+ * The cart icon and the "View cart" bar open the cart, where it is sent to the business.
  */
-export default function CatalogSheet({ items, onPick, onSend, onClose }) {
+export default function CatalogSheet({ items, cart, onPick, onChange, onViewCart, onClose }) {
   const [cat, setCat] = useState('all');
-  const [qty, setQty] = useState(() => Object.fromEntries((items || []).map((i, k) => [k, 0])));
+  const n = itemCount(cart);
+  const qtyOf = (it) => cart.find((x) => x.brandId === it.brandId && x.denom === it.denom)?.qty || 0;
+
+  const head = (title) => (
+    <div className="sheet-head cat-head">
+      <button className="hbtn" onClick={onClose} aria-label="Close"><Close size={22} /></button>
+      <b>{title}</b>
+      <button className="hbtn cart-btn" onClick={onViewCart} disabled={!n} aria-label={`Cart, ${n} items`}>
+        <CartIcon size={22} />
+        {n > 0 && <span className="fab-badge">{n}</span>}
+      </button>
+    </div>
+  );
+  const bar = n > 0 && (
+    <div className="sheet-foot">
+      <button className="wa-primary" onClick={onViewCart}>View cart · {n} item{n > 1 ? 's' : ''} · {fmt(itemsSubtotal(cart))}</button>
+    </div>
+  );
 
   if (items) {
-    const chosen = items.map((i, k) => ({ ...i, qty: qty[k] })).filter((i) => i.qty > 0);
-    const n = chosen.reduce((a, i) => a + i.qty, 0);
-    const set = (k, d) => setQty({ ...qty, [k]: Math.max(0, Math.min(10, qty[k] + d)) });
     return (
       <div className="scrim" onClick={onClose}>
         <div className="sheet list-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Items">
           <div className="grab" />
-          <div className="sheet-head">
-            <button className="hbtn" onClick={onClose} aria-label="Close"><Close size={22} /></button>
-            <b>Your selected items</b>
-            <span className="hbtn" />
-          </div>
+          {head('Your selected items')}
           <div className="sheet-body">
             {items.map((it, k) => {
               const b = brandById(it.brandId);
+              const q = qtyOf(it);
               return (
                 <div key={k} className="cart-row line">
                   <BrandArt brand={b} logo className="cart-thumb" />
@@ -35,20 +47,16 @@ export default function CatalogSheet({ items, onPick, onSend, onClose }) {
                     <b>{b.name} gift voucher</b>
                     <span>{fmt(it.denom)}</span>
                     <div className="stepper sm">
-                      <button onClick={() => set(k, -1)} disabled={!qty[k]} aria-label="Decrease">−</button>
-                      <b>{qty[k]}</b>
-                      <button onClick={() => set(k, 1)} aria-label="Increase">+</button>
+                      <button onClick={() => onChange(it, -1)} disabled={!q} aria-label="Decrease">−</button>
+                      <b>{q}</b>
+                      <button onClick={() => onChange(it, 1)} aria-label="Increase">+</button>
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
-          <div className="sheet-foot">
-            <button className="wa-primary" disabled={!n} onClick={() => onSend(chosen)}>
-              {n ? `Send cart · ${n} item${n > 1 ? 's' : ''} · ${fmt(itemsSubtotal(chosen))}` : 'Add items to your cart'}
-            </button>
-          </div>
+          {bar}
         </div>
       </div>
     );
@@ -59,11 +67,7 @@ export default function CatalogSheet({ items, onPick, onSend, onClose }) {
     <div className="scrim" onClick={onClose}>
       <div className="sheet list-sheet tall" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Catalogue">
         <div className="grab" />
-        <div className="sheet-head">
-          <button className="hbtn" onClick={onClose} aria-label="Close"><Close size={22} /></button>
-          <b>Gyftr catalogue</b>
-          <span className="hbtn" />
-        </div>
+        {head('Gyftr catalogue')}
         <div className="chips cat-chips" role="tablist">
           {[{ id: 'all', label: 'All' }, ...CATEGORIES].map((c) => (
             <button key={c.id} role="tab" aria-selected={cat === c.id} className={'chip ' + (cat === c.id ? 'on' : '')} onClick={() => setCat(c.id)}>
@@ -82,6 +86,7 @@ export default function CatalogSheet({ items, onPick, onSend, onClose }) {
             </button>
           ))}
         </div>
+        {bar}
       </div>
     </div>
   );
