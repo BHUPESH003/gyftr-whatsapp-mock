@@ -331,16 +331,11 @@ export function useBot({ entry, mode, startPoints }) {
     });
     const o = createOrder(d);
     st.current.draft.orderId = o.id;
-    const payLabel = o.pointsUsed > 0 ? (o.onlineDue > 0 ? 'Continue to pay' : 'Pay with points') : 'Review and Pay';
     say({
       kind: 'order',
       orderId: o.id,
-      text: 'Voucher order created! 🎉\nHere are the details:',
-      note: 'Complete the payment to receive your voucher. This order is held for 30 minutes.',
-      buttons: [
-        { id: 'pay:' + o.id, label: payLabel },
-        { id: 'cancel:' + o.id, label: 'Cancel order' },
-      ],
+      note: 'Held for 30 minutes.',
+      label: o.pointsUsed > 0 && o.onlineDue === 0 ? 'Pay with points' : 'Review and pay',
     });
   };
 
@@ -379,7 +374,9 @@ export function useBot({ entry, mode, startPoints }) {
     }
     if (o.onlineDue > 0) {
       s.step = null;
-      say(ctaMsg(o));
+      // In the Flow experience the order message button opens the payment page directly.
+      if (isMenu()) say(ctaMsg(o));
+      else openPay(id);
       return;
     }
     completeOrder(id, 'Points');
@@ -478,14 +475,14 @@ export function useBot({ entry, mode, startPoints }) {
 
   // Called by the payment web view.
   // UPI: the web view closes and a UPI request message lands in the chat.
-  const onUpiPay = ({ orderId, vpa, payable, saved, kind }) => {
+  const onUpiPay = ({ orderId, app, payable, saved, kind }) => {
     setOverlay(null);
     patchOrder(orderId, { payable, saved, offerKind: kind });
     if (isMenu()) {
       st.current.draft.orderId = orderId;
       st.current.step = 'menu_upi';
     }
-    say({ kind: 'upiRequest', orderId, vpa, amount: payable, saved, offerKind: kind, state: 'pending' });
+    say({ kind: 'upiRequest', orderId, app, amount: payable, saved, offerKind: kind, state: 'pending' });
   };
 
   // Mock-only: simulates the customer approving or declining in their UPI app.
@@ -800,6 +797,7 @@ export function useBot({ entry, mode, startPoints }) {
     act,
     onText,
     openFlow,
+    startPayment,
     addItemsToCart,
     addToCart,
     setCartItems: (items) => putCart(items.length ? items : null),

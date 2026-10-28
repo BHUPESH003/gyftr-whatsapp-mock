@@ -269,33 +269,44 @@ function Message({ m, tail, orders, a }) {
         </div>
       );
 
+    // WhatsApp's order details message: order number, items, total, a note, then a Review and pay button
     case 'order': {
       if (!order) return null;
+      const items = lineItems(order);
+      const via = order.payMethod ? { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' }[order.payMethod] : null;
       return (
         <div className="stack">
-          <Bubble m={m} tail={tail}>
-            <Lines
-              rows={[
-                ['*Voucher order created!* 🎉'],
-                ['Here are the details:'],
-                [''],
-                ['Order', order.id],
-                ...lineItems(order).map((i) => ['Voucher', `${brandById(i.brandId).name}, ${fmt(i.denom)} × ${i.qty}`]),
-                ['For', forWhom(order)],
-                order.message ? ['Message', order.message] : null,
-                ['Payment', MODE_LABEL[order.payMode]],
-                order.promoDiscount > 0 ? [`Offer ${order.promo.code}`, '-' + fmt(order.promoDiscount)] : null,
-                order.pointsUsed > 0 ? ['Points', fmt(order.pointsUsed)] : null,
-                order.payMethod ? ['Pay via', { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' }[order.payMethod]] : null,
-                order.saved > 0 ? [order.offerKind === 'cashback' ? 'Cashback later' : 'Offer saving', fmt(order.saved)] : null,
-                order.onlineDue > 0 ? ['To pay online', fmt(order.payable ?? order.onlineDue)] : null,
-                ['Total', fmt(order.total)],
-                [''],
-                [m.note],
-              ]}
-            />
-          </Bubble>
-          {order.status === 'pending_payment' && <Buttons buttons={m.buttons} onAct={a.onAct} />}
+          <div className={'bubble in od ' + (tail ? 'tail' : '')}>
+            <div className="od-no">ORDER #{order.id}</div>
+            {items.map((i) => {
+              const b = brandById(i.brandId);
+              return (
+                <div key={i.brandId + i.denom} className="od-item">
+                  <BrandArt brand={b} logo className="od-thumb" />
+                  <div className="od-name">
+                    <b>{b.name} gift voucher, {fmt(i.denom)}</b>
+                    <span>Quantity {i.qty}</span>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="od-rows">
+              {order.promoDiscount > 0 && <div><span>Offer {order.promo.code}</span><span>-{fmt(order.promoDiscount)}</span></div>}
+              {order.pointsUsed > 0 && <div><span>Points</span><span>{fmt(order.pointsUsed)}</span></div>}
+              {order.saved > 0 && order.offerKind === 'instant' && <div><span>{via} offer</span><span>-{fmt(order.saved)}</span></div>}
+              <div className="od-total"><span>Total</span><b>{fmt(order.payable ?? order.total)}</b></div>
+            </div>
+            <span className="txt od-note">
+              {order.gift ? `For ${order.gift.name} (+91 ${order.gift.phone}). ` : ''}
+              {via ? `Pay by ${via}. ` : ''}
+              {order.saved > 0 && order.offerKind === 'cashback' ? `You get ${fmt(order.saved)} cashback after payment. ` : ''}
+              {m.note}
+            </span>
+            <Meta m={m} />
+          </div>
+          {order.status === 'pending_payment' && (
+            <button className="od-btn" onClick={() => a.onPay(order.id)}>{m.label}</button>
+          )}
         </div>
       );
     }
@@ -384,7 +395,7 @@ function Message({ m, tail, orders, a }) {
                 ['*UPI payment request sent*'],
                 [''],
                 ['Amount', fmt(m.amount)],
-                ['From', m.vpa],
+                ['Via', m.app],
                 m.saved > 0 ? [m.offerKind === 'cashback' ? 'Cashback later' : 'Offer saving', fmt(m.saved)] : null,
                 [''],
                 [
@@ -406,9 +417,9 @@ function Message({ m, tail, orders, a }) {
   }
 }
 
-export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct, onOpenCatalog }) {
+export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct, onOpenCatalog, onPay }) {
   const ref = useRef(null);
-  const a = { onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct, onOpenCatalog };
+  const a = { onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct, onOpenCatalog, onPay };
 
   // Scroll only the chat itself. scrollIntoView would also scroll the 3D layer's ancestors.
   useEffect(() => {

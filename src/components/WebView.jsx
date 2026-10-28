@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BANKS, OFFERS, brandById, fmt, lineItems, offerValue } from '../data';
+import { BANKS, OFFERS, UPI_APPS, brandById, fmt, lineItems, offerValue } from '../data';
 import { ChevronLeft, ChevronRight, Close, Compass, Dots, Lock, Reload, Share } from './icons';
 
 const METHOD_NAME = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' };
@@ -13,7 +13,7 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
   const [stage, setStage] = useState('offers'); // offers | redirecting | gateway | done
   const locked = Boolean(order.payMethod); // chosen earlier in the checkout Flow
   const [method, setMethod] = useState(order.payMethod || 'upi');
-  const [vpa, setVpa] = useState('');
+  const [app, setApp] = useState(UPI_APPS[0]);
   const [bank, setBank] = useState(BANKS[0]);
   const [err, setErr] = useState('');
 
@@ -40,11 +40,7 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
 
   const submit = () => {
     if (method === 'upi') {
-      if (!/^[\w.-]{2,}@[a-zA-Z]{2,}$/.test(vpa.trim())) {
-        setErr('Enter a valid UPI ID, like name@bank');
-        return;
-      }
-      onUpi({ orderId: order.id, vpa: vpa.trim(), payable, saved: value, kind: offer.kind });
+      onUpi({ orderId: order.id, app, payable, saved: value, kind: offer.kind });
       return;
     }
     setStage('redirecting');
@@ -116,17 +112,15 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
 
                     {on && o.method === 'upi' && (
                       <div className="pg-extra">
-                        <label>
-                          UPI ID
-                          <input
-                            value={vpa}
-                            onChange={(e) => { setVpa(e.target.value); setErr(''); }}
-                            placeholder="name@bank"
-                            autoCapitalize="none"
-                            autoCorrect="off"
-                          />
-                        </label>
-                        <small>We will send a payment request to your UPI app.</small>
+                        <div className="pg-apps" role="radiogroup" aria-label="UPI app">
+                          {UPI_APPS.map((n) => (
+                            <button key={n} className="pg-app" role="radio" aria-checked={n === app} onClick={() => setApp(n)}>
+                              <span>{n}</span>
+                              <span className={'pg-radio ' + (n === app ? 'on' : '')} />
+                            </button>
+                          ))}
+                        </div>
+                        <small>We will send a payment request to the app you pick.</small>
                       </div>
                     )}
                     {on && o.method === 'netbanking' && (

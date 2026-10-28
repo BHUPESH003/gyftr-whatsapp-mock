@@ -60,6 +60,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         onOpenList={setList}
         onOpenCart={setCartOpen}
         onOpenProduct={setProductId}
+        onPay={bot.startPayment}
         onOpenCatalog={(items) => setCatalog({ items })}
       />
       <Composer onText={bot.onText} />
@@ -132,7 +133,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
       {pendingUpi && upiOpen && (
         <UpiApp
           amount={pendingUpi.amount}
-          vpa={pendingUpi.vpa}
+          app={pendingUpi.app}
           onClose={() => setUpiOpen(false)}
           onDecline={() => { setUpiOpen(false); bot.onUpiResult(pendingUpi.orderId, false); }}
           onApprove={() => { setUpiOpen(false); bot.onUpiResult(pendingUpi.orderId, true); }}

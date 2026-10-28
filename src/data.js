@@ -110,6 +110,7 @@ export const OFFERS = [
   { id: 'nb', method: 'netbanking', label: 'Netbanking', icon: '🏦', kind: 'instant', title: '₹25 off on netbanking', terms: 'On orders of ₹750 and above', flat: 25, min: 750 },
 ];
 
+export const UPI_APPS = ['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'CRED'];
 export const BANKS = ['Bank A', 'Bank B', 'Bank C'];
 
 export const STATUS_LABEL = {

@@ -5,7 +5,7 @@ import { ChevronLeft } from './icons';
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
 
 /** A stand-in for the customer's own UPI app, so the collect request can be approved in the demo. */
-export default function UpiApp({ amount, vpa, onApprove, onDecline, onClose }) {
+export default function UpiApp({ amount, app, onApprove, onDecline, onClose }) {
   const [stage, setStage] = useState('request'); // request | pin | processing | done
   const [pin, setPin] = useState('');
   const approve = useRef(onApprove);
@@ -51,7 +51,7 @@ export default function UpiApp({ amount, vpa, onApprove, onDecline, onClose }) {
           <small>Payment request from</small>
           <h2>GYFTR DEMO</h2>
           <div className="upi-amt">{fmt(amount)}</div>
-          <p className="upi-from">Pay from <b>{vpa}</b></p>
+          <p className="upi-from">Pay using <b>{app}</b></p>
           <div className="upi-actions">
             <button className="upi-primary" onClick={() => setStage('pin')}>Pay {fmt(amount)}</button>
             <button className="upi-ghost" onClick={onDecline}>Decline</button>
