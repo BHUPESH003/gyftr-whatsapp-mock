@@ -17,7 +17,6 @@ import {
   addItem,
   itemCount,
   itemsSubtotal,
-  methodOffer,
   CUSTOM_MAX,
   CUSTOM_MIN,
   WEB_CART,
@@ -334,7 +333,6 @@ export function useBot({ entry, mode, startPoints }) {
       payMode: d.payMode,
       promo: d.promo,
       ...price,
-      ...(d.payMethod ? methodOffer(d.payMethod, price.onlineDue) : {}),
       status: 'pending_payment',
       date: today(),
       codes: [],
@@ -373,7 +371,7 @@ export function useBot({ entry, mode, startPoints }) {
       : {
           kind: 'cta',
           orderId: o.id,
-          text: `Review your order and pay ${fmt(o.payable ?? o.onlineDue)} securely${o.payMethod ? ` by ${{ upi: 'UPI', card: 'card', netbanking: 'netbanking' }[o.payMethod]}` : ''}.\nThe link expires in 30 minutes.`,
+          text: `Review your order and pay ${fmt(o.payable ?? o.onlineDue)} securely.\nThe link expires in 30 minutes.`,
           label: 'Review and Pay',
         };
 

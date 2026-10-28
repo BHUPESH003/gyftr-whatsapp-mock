@@ -273,7 +273,6 @@ function Message({ m, tail, orders, a }) {
     case 'order': {
       if (!order) return null;
       const items = lineItems(order);
-      const via = order.payMethod ? { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' }[order.payMethod] : null;
       return (
         <div className="stack">
           <div className={'bubble in od ' + (tail ? 'tail' : '')}>
@@ -293,13 +292,10 @@ function Message({ m, tail, orders, a }) {
             <div className="od-rows">
               {order.promoDiscount > 0 && <div><span>Offer {order.promo.code}</span><span>-{fmt(order.promoDiscount)}</span></div>}
               {order.pointsUsed > 0 && <div><span>Points</span><span>{fmt(order.pointsUsed)}</span></div>}
-              {order.saved > 0 && order.offerKind === 'instant' && <div><span>{via} offer</span><span>-{fmt(order.saved)}</span></div>}
               <div className="od-total"><span>Total</span><b>{fmt(order.payable ?? order.total)}</b></div>
             </div>
             <span className="txt od-note">
               {order.gift ? `For ${order.gift.name} (+91 ${order.gift.phone}). ` : ''}
-              {via ? `Pay by ${via}. ` : ''}
-              {order.saved > 0 && order.offerKind === 'cashback' ? `You get ${fmt(order.saved)} cashback after payment. ` : ''}
               {m.note}
             </span>
             <Meta m={m} />

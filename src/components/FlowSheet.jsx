@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { MODE_LABEL, OFFERS, brandById, fmt, itemsSubtotal, offerValue, offersForItems, payModeOptions, priceOrder, promoValue, validatePromo, eligibleSubtotal } from '../data';
+import { MODE_LABEL, brandById, fmt, itemsSubtotal, offersForItems, payModeOptions, priceOrder, promoValue, validatePromo, eligibleSubtotal } from '../data';
 import BrandArt from './BrandArt';
 import { ChevronDown, ChevronLeft, Close, Dots } from './icons';
 
 const TITLES = ['Your cart', 'Coupons & offers', 'Payment', 'Review order'];
-const METHOD_NAME = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' };
 
 function Field({ label, error, children }) {
   return (
@@ -32,7 +31,6 @@ export default function FlowSheet({ items, promo: startPromo, points, onClose, o
   const [picked, setPicked] = useState(startPromo || null);
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState('');
-  const [method, setMethod] = useState(null);
 
   const subtotal = itemsSubtotal(items);
   const offers = offersForItems(items);
@@ -42,9 +40,6 @@ export default function FlowSheet({ items, promo: startPromo, points, onClose, o
   const options = payModeOptions(base.total, points);
   const mode = options.find((o) => o.id === payMode && o.ok) ? payMode : null;
   const price = priceOrder({ items, promo, payMode: mode || 'online', points });
-  const needMethod = Boolean(mode) && price.onlineDue > 0;
-  const chosen = needMethod ? OFFERS.find((o) => o.method === method) : null;
-  const methodValue = chosen ? offerValue(chosen, price.onlineDue) : 0;
 
   const pickOffer = (p) => {
     setPicked(p);
@@ -70,18 +65,17 @@ export default function FlowSheet({ items, promo: startPromo, points, onClose, o
       }
       return setStep(2);
     }
-    if (step === 2) return mode && (!needMethod || method) ? setStep(3) : undefined;
+    if (step === 2) return mode ? setStep(3) : undefined;
     return onSubmit({
       items,
       gift: gift ? { name: name.trim(), phone } : null,
       message: gift ? message.trim() : '',
       payMode: mode,
-      payMethod: needMethod ? method : null,
       promo,
     });
   };
   const back = () => (step === 0 ? onClose() : setStep(step - 1));
-  const disabled = step === 2 && (!mode || (needMethod && !method));
+  const disabled = step === 2 && !mode;
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -207,27 +201,8 @@ export default function FlowSheet({ items, promo: startPromo, points, onClose, o
                   </button>
                 ))}
               </div>
-              {needMethod && (
-                <div className="group" role="radiogroup" aria-label="Payment method">
-                  <div className="group-label">Pay {fmt(price.onlineDue)} using</div>
-                  {OFFERS.map((o) => {
-                    const v = offerValue(o, price.onlineDue);
-                    return (
-                      <button key={o.id} className="opt" role="radio" aria-checked={o.method === method} onClick={() => setMethod(o.method)}>
-                        <span className="opt-txt">
-                          <b>{o.label}</b>
-                          <small className={v ? 'good' : ''}>
-                            {v ? `${o.title}. You save ${fmt(v)}` : `${o.title}. Add ${fmt(o.min - price.onlineDue)} more to unlock`}
-                          </small>
-                        </span>
-                        <span className={'radio ' + (o.method === method ? 'on' : '')} />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
               <p className="cap">
-                You will get an order message in the chat to review and pay. Points need an OTP in the chat.
+                You will get an order message in the chat. Tap Review and pay there to choose UPI, card or net banking. Points need an OTP in the chat.
               </p>
             </>
           )}
@@ -244,9 +219,7 @@ export default function FlowSheet({ items, promo: startPromo, points, onClose, o
                 <Row k="Payment" v={MODE_LABEL[mode]} />
                 {price.promoDiscount > 0 && <Row k={`Offer ${promo.code}`} v={'-' + fmt(price.promoDiscount)} good />}
                 {price.pointsUsed > 0 && <Row k="Points used" v={fmt(price.pointsUsed)} />}
-                {chosen && <Row k="Pay via" v={METHOD_NAME[chosen.method]} />}
-                {methodValue > 0 && <Row k={chosen.kind === 'cashback' ? 'Cashback later' : `${chosen.label} offer`} v={(chosen.kind === 'cashback' ? '' : '-') + fmt(methodValue)} good />}
-                {price.onlineDue > 0 && <Row k="To pay online" v={fmt(chosen?.kind === 'instant' ? price.onlineDue - methodValue : price.onlineDue)} />}
+                {price.onlineDue > 0 && <Row k="To pay online" v={fmt(price.onlineDue)} />}
                 <div className="review-total"><span>Total</span><b>{fmt(price.total)}</b></div>
               </div>
             </>

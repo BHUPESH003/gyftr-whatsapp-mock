@@ -110,6 +110,13 @@ export const OFFERS = [
   { id: 'nb', method: 'netbanking', label: 'Netbanking', icon: '🏦', kind: 'instant', title: '₹25 off on netbanking', terms: 'On orders of ₹750 and above', flat: 25, min: 750 },
 ];
 
+// What the payment gateway shows after "Review and pay". Debit and credit cards share the card offer.
+export const PAY_METHODS = [
+  { id: 'upi', label: 'UPI', icon: '📲', offer: 'upi' },
+  { id: 'debit', label: 'Debit Card', icon: '💳', offer: 'card' },
+  { id: 'credit', label: 'Credit Card', icon: '💳', offer: 'card' },
+  { id: 'netbanking', label: 'Net Banking', icon: '🏦', offer: 'netbanking' },
+];
 export const UPI_APPS = ['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'CRED'];
 export const BANKS = ['Bank A', 'Bank B', 'Bank C'];
 
@@ -162,14 +169,6 @@ export function payModeOptions(total, points) {
 export function offerValue(offer, amount) {
   if (amount < offer.min) return 0;
   return offer.flat ?? Math.min(Math.round((amount * offer.pct) / 100), offer.cap);
-}
-
-// What the customer saves and ends up paying for an online amount, given the chosen payment method.
-export function methodOffer(method, due) {
-  const o = OFFERS.find((x) => x.method === method);
-  if (!o || !due) return {};
-  const saved = offerValue(o, due);
-  return { payMethod: method, saved, offerKind: o.kind, payable: o.kind === 'instant' ? due - saved : due };
 }
 
 export function timeline(status) {

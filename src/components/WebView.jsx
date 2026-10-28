@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { BANKS, OFFERS, UPI_APPS, brandById, fmt, lineItems, offerValue } from '../data';
+import { BANKS, OFFERS, PAY_METHODS, UPI_APPS, brandById, fmt, lineItems, offerValue } from '../data';
 import { ChevronLeft, ChevronRight, Close, Compass, Dots, Lock, Reload, Share } from './icons';
 
-const METHOD_NAME = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' };
+const METHOD_NAME = { upi: 'UPI', debit: 'Debit card', credit: 'Credit card', netbanking: 'Netbanking' };
 
 /**
  * Stands in for the in-app browser WhatsApp opens from a "View offers and pay" button.
@@ -11,15 +11,15 @@ const METHOD_NAME = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' };
  */
 export default function WebView({ order, onUpi, onGateway, onClose }) {
   const [stage, setStage] = useState('offers'); // offers | redirecting | gateway | done
-  const locked = Boolean(order.payMethod); // chosen earlier in the checkout Flow
-  const [method, setMethod] = useState(order.payMethod || 'upi');
+  const [method, setMethod] = useState('upi');
   const [app, setApp] = useState(UPI_APPS[0]);
   const [bank, setBank] = useState(BANKS[0]);
   const [err, setErr] = useState('');
 
   const items = lineItems(order);
   const due = order.onlineDue;
-  const offer = OFFERS.find((o) => o.method === method);
+  const chosen = PAY_METHODS.find((m) => m.id === method);
+  const offer = OFFERS.find((o) => o.method === chosen.offer);
   const value = offerValue(offer, due);
   const payable = offer.kind === 'instant' ? due - value : due;
 
@@ -71,7 +71,7 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
               <img className="pg-logo" src="/gyftr-logo.png" alt="Gyftr" />
               <small>Order {order.id}</small>
               <h1>Pay {fmt(due)}</h1>
-              <p>{locked ? 'Review your order and complete the payment.' : 'Pick how you want to pay. Offers are applied for you.'}</p>
+              <p>Review your order, then choose how you want to pay.</p>
             </div>
 
             <div className="pg-order">
@@ -87,62 +87,48 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
               <div className="rrow"><span>To pay</span><b>{fmt(due)}</b></div>
             </div>
 
-            <div className="pg-methods" role="radiogroup" aria-label="Payment method">
-              {OFFERS.filter((o) => !locked || o.method === method).map((o) => {
-                const v = offerValue(o, due);
-                const on = o.method === method;
-                return (
-                  <div key={o.id} className={'pg-method ' + (on ? 'on' : '')}>
-                    <button
-                      className="pg-mhead"
-                      role="radio"
-                      aria-checked={on}
-                      disabled={locked}
-                      onClick={() => { setMethod(o.method); setErr(''); }}
-                    >
-                      <span className="pg-ico">{o.icon}</span>
-                      <span className="pg-mtxt">
-                        <b>{o.label}</b>
-                        <small className={v ? 'good' : ''}>
-                          {v ? `${o.title}. You save ${fmt(v)}` : `${o.title}. Add ${fmt(o.min - due)} more to unlock`}
-                        </small>
-                      </span>
-                      <span className={'pg-radio ' + (on ? 'on' : '')} />
-                    </button>
-
-                    {on && o.method === 'upi' && (
-                      <div className="pg-extra">
-                        <div className="pg-apps" role="radiogroup" aria-label="UPI app">
-                          {UPI_APPS.map((n) => (
-                            <button key={n} className="pg-app" role="radio" aria-checked={n === app} onClick={() => setApp(n)}>
-                              <span>{n}</span>
-                              <span className={'pg-radio ' + (n === app ? 'on' : '')} />
-                            </button>
-                          ))}
-                        </div>
-                        <small>We will send a payment request to the app you pick.</small>
-                      </div>
-                    )}
-                    {on && o.method === 'netbanking' && (
-                      <div className="pg-extra">
-                        <label>
-                          Choose your bank
-                          <select value={bank} onChange={(e) => setBank(e.target.value)}>
-                            {BANKS.map((b) => <option key={b}>{b}</option>)}
-                          </select>
-                        </label>
-                        <small>You will go to your bank's website to log in.</small>
-                      </div>
-                    )}
-                    {on && o.method === 'card' && (
-                      <div className="pg-extra">
-                        <small>You will go to the secure payment page to enter card details.</small>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <h3 className="pg-sub">Choose payment method</h3>
+            <div className="pg-tiles" role="radiogroup" aria-label="Payment method">
+              {PAY_METHODS.map((m) => (
+                <button key={m.id} className={'pg-tile ' + (m.id === method ? 'on' : '')} role="radio" aria-checked={m.id === method} onClick={() => { setMethod(m.id); setErr(''); }}>
+                  {m.label}
+                </button>
+              ))}
             </div>
+
+            <div className="pg-extra pg-panel">
+              <small className={value ? 'good' : ''}>
+                {value ? `${offer.title}. You save ${fmt(value)}` : `${offer.title}. Add ${fmt(offer.min - due)} more to unlock`}
+              </small>
+              {method === 'upi' && (
+                <>
+                  <div className="pg-apps" role="radiogroup" aria-label="UPI app">
+                    {UPI_APPS.map((n) => (
+                      <button key={n} className="pg-app" role="radio" aria-checked={n === app} onClick={() => setApp(n)}>
+                        <span>{n}</span>
+                        <span className={'pg-radio ' + (n === app ? 'on' : '')} />
+                      </button>
+                    ))}
+                  </div>
+                  <small>We will send a payment request to the app you pick.</small>
+                </>
+              )}
+              {method === 'netbanking' && (
+                <>
+                  <label>
+                    Choose your bank
+                    <select value={bank} onChange={(e) => setBank(e.target.value)}>
+                      {BANKS.map((b) => <option key={b}>{b}</option>)}
+                    </select>
+                  </label>
+                  <small>You will go to your bank's website to log in.</small>
+                </>
+              )}
+              {(method === 'debit' || method === 'credit') && (
+                <small>You will go to the secure payment page to enter your {chosen.label.toLowerCase()} details.</small>
+              )}
+            </div>
+            <p className="pg-illus">Illustrative checkout options; actual options are controlled by the payment gateway.</p>
 
             {err && <p className="pg-err">{err}</p>}
             <div className="pg-foot">
@@ -174,7 +160,7 @@ export default function WebView({ order, onUpi, onGateway, onClose }) {
           <div className="gw">
             <div className="gw-card">
               <img className="pg-logo" src="/gyftr-logo.png" alt="Gyftr" />
-              <h2>{method === 'netbanking' ? `${bank} Netbanking` : 'Card verification'}</h2>
+              <h2>{method === 'netbanking' ? `${bank} Netbanking` : `${chosen.label} verification`}</h2>
               <div className="rrow"><span>Merchant</span><b>GYFTR DEMO</b></div>
               <div className="rrow"><span>Amount</span><b>{fmt(payable)}</b></div>
               <p className="demo-note">Demo page. Never enter real bank or card details here.</p>

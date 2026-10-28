@@ -348,3 +348,10 @@ img.avatar { object-fit: cover; background: #fff; }
 .pg-apps { display: flex; flex-direction: column; border: 1px solid #e3e7ea; border-radius: 10px; }
 .pg-app { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 0; border-bottom: 0.5px solid #ececec; background: none; font-size: 16px; text-align: left; }
 .pg-app:last-child { border-bottom: 0; }
+
+.pg-sub { margin: 4px 0 10px; font-size: 16px; }
+.pg-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pg-tile { padding: 16px 8px; border: 1px solid #dfe3e6; border-radius: 12px; background: #fff; font-size: 16px; font-weight: 600; color: #161a1d; }
+.pg-tile.on { border-color: var(--pg); box-shadow: 0 0 0 1px var(--pg); background: #f4f3ff; }
+.pg-panel { margin-top: 12px; padding: 12px 0 0; }
+.pg-illus { margin: 10px 2px 0; font-size: 12.5px; color: #6b7780; text-align: center; }
