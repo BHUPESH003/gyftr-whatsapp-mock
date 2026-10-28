@@ -153,7 +153,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
           onSubmit={bot.onFlowSubmit}
         />
       )}
-      {payOrder && <PayFlow order={payOrder} onPayment={bot.onPayment} onClose={bot.closeOverlay} />}
+      {payOrder && <PayFlow order={payOrder} view={bot.overlay.view} onPayment={bot.onPayment} onClose={bot.closeOverlay} />}
     </div>
   );
 }

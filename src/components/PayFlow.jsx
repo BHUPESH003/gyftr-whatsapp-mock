@@ -6,6 +6,14 @@ import WebView from './WebView';
 import { ChevronLeft, Close, Dots } from './icons';
 
 const WA_UPI_ID = 'gyftr@wabank';
+const BUSINESS_PHONE = '+91 96508 55800';
+
+const expiryText = () => {
+  const d = new Date(Date.now() + 5 * 60000);
+  const date = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `This order expires on ${date} at ${time}.`;
+};
 // Rows of WhatsApp's "Choose payment method" sheet. `app` is what the demo UPI app shows.
 const METHODS = [
   { id: 'wa', label: 'Pay on WhatsApp', badge: '💬', tint: '#25d366', app: 'WhatsApp' },
@@ -28,8 +36,8 @@ function Receipt({ order, paid }) {
       )}
       <div className="pf-merchant">
         <img src="/gyftr-icon.png" alt="Gyftr" />
-        <b>Gyftr</b>
-        <small>Order #{order.id}</small>
+        <b className="pf-phone">{BUSINESS_PHONE}</b>
+        <small>ORDER #{order.id}</small>
         <span className="pf-chip">Order pending</span>
       </div>
       {items.map((i) => {
@@ -64,9 +72,11 @@ function Receipt({ order, paid }) {
  * Order details, then the payment method sheet, then either a Review payment sheet
  * (Pay on WhatsApp), the customer's UPI app, or the gateway page for cards and net banking.
  */
-export default function PayFlow({ order, onPayment, onClose }) {
-  const [stage, setStage] = useState('method'); // method | review | upi | other | receipt
-  const [sel, setSel] = useState('wa');
+export default function PayFlow({ order, view = 'pay', onPayment, onClose }) {
+  // details (View order) | confirm (Pay now) | method (Change) | upi | other | receipt
+  const [stage, setStage] = useState(view === 'details' ? 'details' : 'confirm');
+  const [sel, setSel] = useState('phonepe');
+  const [expiry] = useState(expiryText);
   const due = order.onlineDue;
   const upiOffer = OFFERS.find((o) => o.method === 'upi');
   const upiSave = offerValue(upiOffer, due);
@@ -85,7 +95,7 @@ export default function PayFlow({ order, onPayment, onClose }) {
         amount={due}
         app={method.app}
         startAtPin={sel === 'wa'}
-        onClose={() => setStage(sel === 'wa' ? 'review' : 'method')}
+        onClose={() => setStage('confirm')}
         onDecline={fail}
         onApprove={paidUpi}
       />
@@ -95,7 +105,7 @@ export default function PayFlow({ order, onPayment, onClose }) {
     return (
       <WebView
         order={order}
-        onClose={() => setStage('method')}
+        onClose={() => setStage('confirm')}
         onGateway={(r) => {
           if (!r.ok) return fail();
           onPayment({ orderId: order.id, ok: true, method: r.method, saved: r.saved, payable: due - r.saved, kind: 'instant' });
@@ -114,12 +124,18 @@ export default function PayFlow({ order, onPayment, onClose }) {
         <span className="hbtn light"><Dots size={22} /></span>
       </div>
       <div className="pf-body"><Receipt order={order} paid={receipt} /></div>
+      {stage === 'details' && (
+        <div className="pf-foot">
+          <button className="wa-primary" onClick={() => setStage('confirm')}>Continue</button>
+          <p className="pf-expiry">{expiry}</p>
+        </div>
+      )}
 
       {stage === 'method' && (
         <div className="pf-scrim">
           <div className="sheet pf-sheet" role="dialog" aria-label="Choose payment method">
             <div className="sheet-head left">
-              <button className="hbtn" onClick={onClose} aria-label="Close"><Close size={22} /></button>
+              <button className="hbtn" onClick={() => setStage('confirm')} aria-label="Close"><Close size={22} /></button>
               <b>Choose payment method</b>
             </div>
             <div className="sheet-body">
@@ -136,34 +152,38 @@ export default function PayFlow({ order, onPayment, onClose }) {
               ))}
             </div>
             <div className="sheet-foot">
-              <button className="wa-primary" onClick={() => setStage(sel === 'wa' ? 'review' : sel === 'other' ? 'other' : 'upi')}>Continue</button>
+              <button className="wa-primary" onClick={() => setStage('confirm')}>Continue</button>
               <p className="pf-upi">UPI · Payments powered by the payment gateway</p>
             </div>
           </div>
         </div>
       )}
 
-      {stage === 'review' && (
+      {stage === 'confirm' && (
         <div className="pf-scrim">
-          <div className="sheet pf-sheet" role="dialog" aria-label="Review payment">
+          <div className="sheet pf-sheet" role="dialog" aria-label="Confirm payment">
             <div className="sheet-head left">
-              <button className="hbtn" onClick={() => setStage('method')} aria-label="Back"><ChevronLeft size={24} /></button>
-              <b>Review payment</b>
+              <button className="hbtn" onClick={onClose} aria-label="Close"><Close size={22} /></button>
+              <b>Confirm payment</b>
             </div>
             <div className="sheet-body">
               <div className="pf-to">
                 <img src="/gyftr-icon.png" alt="" />
                 <span><small>Send to</small><b>Gyftr</b><small>UPI ID: {WA_UPI_ID}</small></span>
               </div>
-              <div className="pf-to">
-                <span className="pf-badge" style={{ background: '#d6452b' }}>B</span>
-                <span><small>Using</small><b>Bank ••1234</b><small>Default</small></span>
+              <div className="pf-to row">
+                <span className="pf-badge" style={{ background: method.tint }}>{method.badge}</span>
+                <span><small>Using</small><b>{method.id === 'wa' ? 'Bank ••1234' : method.label}</b></span>
+                <button className="pf-change" onClick={() => setStage('method')}>Change</button>
               </div>
-              {upiSave > 0 && <p className="cap good">{upiOffer.title}. You save {fmt(upiSave)}</p>}
+              {upiSave > 0 && sel !== 'other' && <p className="cap good">{upiOffer.title}. You save {fmt(upiSave)}</p>}
               <div className="review-total"><span>Total</span><b>{fmt(due)}</b></div>
             </div>
             <div className="sheet-foot">
-              <button className="wa-primary" onClick={() => setStage('upi')}>Send payment</button>
+              <button className="wa-primary" onClick={() => setStage(sel === 'other' ? 'other' : 'upi')}>
+                {sel === 'other' ? 'Continue' : sel === 'wa' ? 'Pay' : `Pay with ${method.label}`}
+              </button>
+              <p className="pf-upi">UPI · Payments powered by the payment gateway</p>
             </div>
           </div>
         </div>
