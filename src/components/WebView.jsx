@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BANKS, OFFERS, eligibleSubtotal, fmt, lineItems, offerValue, offersForItems, promoValue, validatePromo } from '../data';
+import { BANKS, OFFERS, brandById, fmt, lineItems, offerValue } from '../data';
 import { ChevronLeft, ChevronRight, Close, Compass, Dots, Lock, Reload, Share } from './icons';
 
 const METHOD_NAME = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' };
@@ -9,24 +9,15 @@ const METHOD_NAME = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' };
  *  - UPI: closes and the chat gets a UPI request message.
  *  - Card or netbanking: goes straight to the bank or gateway page, then back to the chat.
  */
-export default function WebView({ order, onApplyPromo, onUpi, onGateway, onClose }) {
+export default function WebView({ order, onUpi, onGateway, onClose }) {
   const [stage, setStage] = useState('offers'); // offers | redirecting | gateway | done
-  const [method, setMethod] = useState('upi');
+  const locked = Boolean(order.payMethod); // chosen earlier in the checkout Flow
+  const [method, setMethod] = useState(order.payMethod || 'upi');
   const [vpa, setVpa] = useState('');
   const [bank, setBank] = useState(BANKS[0]);
   const [err, setErr] = useState('');
-  const [code, setCode] = useState('');
-  const [codeErr, setCodeErr] = useState('');
 
   const items = lineItems(order);
-  const canCoupon = !order.pointsPaid;
-  const applyCode = () => {
-    const r = validatePromo(code, items);
-    if (!r.ok) return setCodeErr(r.error);
-    onApplyPromo(order.id, r.promo);
-    setCode('');
-    return setCodeErr('');
-  };
   const due = order.onlineDue;
   const offer = OFFERS.find((o) => o.method === method);
   const value = offerValue(offer, due);
@@ -84,48 +75,24 @@ export default function WebView({ order, onApplyPromo, onUpi, onGateway, onClose
               <img className="pg-logo" src="/gyftr-logo.png" alt="Gyftr" />
               <small>Order {order.id}</small>
               <h1>Pay {fmt(due)}</h1>
-              <p>Pick how you want to pay. Offers are applied for you.</p>
+              <p>{locked ? 'Review your order and complete the payment.' : 'Pick how you want to pay. Offers are applied for you.'}</p>
             </div>
 
-            {canCoupon && (
-              <div className="pg-coupons">
-                <h3>Coupons &amp; offers</h3>
-                {order.promo && (
-                  <div className="pg-applied">
-                    <span>🏷️ <b>{order.promo.code}</b> applied, you save {fmt(order.promoDiscount)}</span>
-                    <button onClick={() => onApplyPromo(order.id, null)}>Remove</button>
-                  </div>
-                )}
-                <div className="pg-code">
-                  <input
-                    value={code}
-                    onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeErr(''); }}
-                    placeholder="Enter coupon code"
-                    autoCapitalize="characters"
-                    autoComplete="off"
-                  />
-                  <button onClick={applyCode} disabled={!code.trim()}>Apply</button>
+            <div className="pg-order">
+              <h3>Order details</h3>
+              {items.map((it) => (
+                <div key={it.brandId + it.denom} className="rrow">
+                  <span>{brandById(it.brandId).name}, {fmt(it.denom)} × {it.qty}</span>
+                  <b>{fmt(it.denom * it.qty)}</b>
                 </div>
-                {codeErr && <p className="pg-err">{codeErr}</p>}
-                {offersForItems(items).map((o) => {
-                  const sub = eligibleSubtotal(o, items);
-                  const ok = sub >= (o.min || 0);
-                  const on = order.promo?.code === o.code;
-                  return (
-                    <div key={o.code} className="pg-offer">
-                      <span className="pg-offer-txt">
-                        <b>{o.code}</b>
-                        <small>{o.label}. {ok ? o.note : `Add ${fmt(o.min - sub)} more to use this`}</small>
-                      </span>
-                      <button disabled={!ok || on} onClick={() => onApplyPromo(order.id, o)}>{on ? 'Applied' : 'Apply'}</button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+              ))}
+              {order.promoDiscount > 0 && <div className="rrow"><span>Offer {order.promo.code}</span><b className="good">-{fmt(order.promoDiscount)}</b></div>}
+              {order.pointsUsed > 0 && <div className="rrow"><span>Paid with points</span><b>-{fmt(order.pointsUsed)}</b></div>}
+              <div className="rrow"><span>To pay</span><b>{fmt(due)}</b></div>
+            </div>
 
             <div className="pg-methods" role="radiogroup" aria-label="Payment method">
-              {OFFERS.map((o) => {
+              {OFFERS.filter((o) => !locked || o.method === method).map((o) => {
                 const v = offerValue(o, due);
                 const on = o.method === method;
                 return (
@@ -134,6 +101,7 @@ export default function WebView({ order, onApplyPromo, onUpi, onGateway, onClose
                       className="pg-mhead"
                       role="radio"
                       aria-checked={on}
+                      disabled={locked}
                       onClick={() => { setMethod(o.method); setErr(''); }}
                     >
                       <span className="pg-ico">{o.icon}</span>

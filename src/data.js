@@ -29,6 +29,21 @@ export const BRANDS = [
 
 export const PRODUCT_BLURB = 'Valid for 12 months. Delivered instantly on WhatsApp.';
 export const DENOMS = [250, 500, 1000, 2000, 5000];
+export const CUSTOM_MIN = 100;
+export const CUSTOM_MAX = 10000;
+export const customAmountError = (v) => {
+  const n = Number(v);
+  if (!Number.isInteger(n)) return 'Enter a whole amount in rupees';
+  if (n < CUSTOM_MIN || n > CUSTOM_MAX) return `Enter an amount from ${fmt(CUSTOM_MIN)} to ${fmt(CUSTOM_MAX)}`;
+  return '';
+};
+
+// Items the customer put in their cart on the Gyftr app or website, for the abandoned cart journey.
+export const WEB_CART = [
+  { brandId: 'a', denom: 500, qty: 1 },
+  { brandId: 'b', denom: 1000, qty: 1 },
+  { brandId: 'c', denom: 2000, qty: 1 },
+];
 
 // Promo codes. A promo with a brandId only works on that partner, otherwise it works on any.
 export const PROMOS = [
@@ -146,6 +161,14 @@ export function payModeOptions(total, points) {
 export function offerValue(offer, amount) {
   if (amount < offer.min) return 0;
   return offer.flat ?? Math.min(Math.round((amount * offer.pct) / 100), offer.cap);
+}
+
+// What the customer saves and ends up paying for an online amount, given the chosen payment method.
+export function methodOffer(method, due) {
+  const o = OFFERS.find((x) => x.method === method);
+  if (!o || !due) return {};
+  const saved = offerValue(o, due);
+  return { payMethod: method, saved, offerKind: o.kind, payable: o.kind === 'instant' ? due - saved : due };
 }
 
 export function timeline(status) {

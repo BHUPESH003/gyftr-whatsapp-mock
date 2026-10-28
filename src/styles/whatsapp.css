@@ -322,3 +322,17 @@ img.avatar { object-fit: cover; background: #fff; }
 .pg-offer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0 0; margin-top: 10px; border-top: 0.5px solid #ececec; }
 .pg-offer-txt { display: flex; flex-direction: column; gap: 1px; }
 .pg-offer-txt small { font-size: 13px; color: #5c6870; }
+
+/* catalogue */
+.cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-bottom: 6px; border-radius: 7px; overflow: hidden; }
+.cat-cell { height: 84px; }
+.cat-chips { padding: 0 16px 6px; overflow-x: auto; flex-wrap: nowrap; }
+.cat-chips .chip { flex: none; padding: 6px 14px; font-size: 15px; }
+.cat-list { padding-top: 0; }
+.cat-item { width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left; }
+.sheet.tall { height: 78%; }
+.chip-custom { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+
+.pg-order { margin-bottom: 16px; padding: 4px 14px 8px; border: 1px solid #dfe3e6; border-radius: 14px; }
+.pg-order h3 { margin: 10px 0 2px; font-size: 16px; }
+.pg-mhead:disabled { opacity: 1; cursor: default; }

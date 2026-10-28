@@ -81,6 +81,7 @@ export default function App() {
               options={[
                 { value: 'user', label: 'User starts chat' },
                 { value: 'marketing', label: 'Marketing banner' },
+                { value: 'abandoned', label: 'Abandoned cart' },
               ]}
             />
             <Seg
@@ -108,7 +109,8 @@ export default function App() {
             <ul>
               <li>Points OTP: <code>{DEMO_OTP}</code></li>
               <li>UPI: enter any name@bank. A notification from a demo UPI app drops in at the top, tap it to approve</li>
-              <li>Card and netbanking go to a fake bank page</li>
+              <li>Pick a payment method in the checkout Flow, then tap Review and Pay in the chat. Card and netbanking open a fake gateway page</li>
+              <li>Abandoned cart: the chat opens with a reminder of items saved from the app. Try both buttons</li>
               <li>150 points shows the Points + online split</li>
               <li>Menu mode: type numbers like a real chat, and 0 for the menu</li>
               <li>Share the full-screen view on a phone with <code>?view=full</code></li>

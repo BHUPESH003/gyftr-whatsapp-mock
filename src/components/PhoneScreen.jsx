@@ -4,6 +4,7 @@ import { fmt, itemCount } from '../data';
 import Chat, { Composer } from './Chat';
 import FlowSheet from './FlowSheet';
 import CartSheet from './CartSheet';
+import CatalogSheet from './CatalogSheet';
 import ListSheet from './ListSheet';
 import ProductSheet from './ProductSheet';
 import UpiApp from './UpiApp';
@@ -29,6 +30,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
   const [list, setList] = useState(null);
   const [cartOpen, setCartOpen] = useState(null); // { items, readOnly }
   const [productId, setProductId] = useState(null);
+  const [catalog, setCatalog] = useState(null); // { items? }
   const [upiOpen, setUpiOpen] = useState(false);
 
   const pendingUpi = bot.messages.find((m) => m.kind === 'upiRequest' && m.state === 'pending');
@@ -58,6 +60,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         onOpenList={setList}
         onOpenCart={setCartOpen}
         onOpenProduct={setProductId}
+        onOpenCatalog={(items) => setCatalog({ items })}
       />
       <Composer onText={bot.onText} />
       {device && <div className="home-ind" aria-hidden="true" />}
@@ -88,6 +91,14 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
           onClose={() => setCartOpen(null)}
         />
       )}
+      {catalog && (
+        <CatalogSheet
+          items={catalog.items}
+          onClose={() => setCatalog(null)}
+          onPick={(id) => { setCatalog(null); setProductId(id); }}
+          onSend={(sent) => { setCatalog(null); bot.addItemsToCart(sent); }}
+        />
+      )}
       {productId && (
         <ProductSheet
           brandId={productId}
@@ -105,7 +116,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
         />
       )}
       {payOrder && (
-        <WebView order={payOrder} onApplyPromo={bot.applyPromo} onUpi={bot.onUpiPay} onGateway={bot.onGatewayDone} onClose={bot.closeOverlay} />
+        <WebView order={payOrder} onUpi={bot.onUpiPay} onGateway={bot.onGatewayDone} onClose={bot.closeOverlay} />
       )}
 
       {pendingUpi && !upiOpen && (

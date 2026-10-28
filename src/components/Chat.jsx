@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { MODE_LABEL, STATUS_LABEL, brandById, fmt, itemCount, itemsSubtotal, lineItems } from '../data';
+import { BRANDS, MODE_LABEL, STATUS_LABEL, brandById, fmt, itemCount, itemsSubtotal, lineItems } from '../data';
 import BrandArt from './BrandArt';
 import { Camera, CopyIcon, External, FlowIcon, ListIcon, Lock, Mic, Plus, Reply, Send, Sticker, Ticks } from './icons';
 
@@ -193,6 +193,40 @@ function Message({ m, tail, orders, a }) {
         </div>
       );
 
+    case 'catalog': {
+      const brands = (m.items ? m.items.map((i) => brandById(i.brandId)) : BRANDS).slice(0, 4);
+      return (
+        <div className="stack">
+          <div className="bubble in tail media">
+            <div className="cat-grid">
+              {brands.map((b) => <BrandArt key={b.id} brand={b} logo className="cat-cell" />)}
+            </div>
+            <span className="txt pad"><Rich text={m.text} /></span>
+            <Meta m={m} />
+          </div>
+          <WBtn icon="list" onClick={() => a.onOpenCatalog(m.items)}>{m.items ? 'View items' : 'View catalogue'}</WBtn>
+        </div>
+      );
+    }
+
+    // marketing template: items left in the cart on the app or website
+    case 'abandoned':
+      return (
+        <div className="stack">
+          <div className="bubble in tail media">
+            <BrandArt brand={brandById(m.items[0].brandId)} className="prod-art" />
+            <span className="txt pad">
+              <b>You left something behind 🛒</b>
+              {m.items.map((i) => `\n${i.qty} x ${brandById(i.brandId).name} gift voucher (${fmt(i.denom)})`)}
+              {`\n\nCart total: ${fmt(itemsSubtotal(m.items))}`}
+            </span>
+            <span className="foot pad">Sent by Gyftr. Reply STOP to opt out.</span>
+            <Meta m={m} />
+          </div>
+          <Buttons buttons={m.buttons} onAct={a.onAct} />
+        </div>
+      );
+
     case 'banner':
       return (
         <div className="stack">
@@ -252,7 +286,9 @@ function Message({ m, tail, orders, a }) {
                 ['Payment', MODE_LABEL[order.payMode]],
                 order.promoDiscount > 0 ? [`Offer ${order.promo.code}`, '-' + fmt(order.promoDiscount)] : null,
                 order.pointsUsed > 0 ? ['Points', fmt(order.pointsUsed)] : null,
-                order.onlineDue > 0 ? ['To pay online', fmt(order.onlineDue)] : null,
+                order.payMethod ? ['Pay via', { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' }[order.payMethod]] : null,
+                order.saved > 0 ? [order.offerKind === 'cashback' ? 'Cashback later' : 'Offer saving', fmt(order.saved)] : null,
+                order.onlineDue > 0 ? ['To pay online', fmt(order.payable ?? order.onlineDue)] : null,
                 ['Total', fmt(order.total)],
                 [''],
                 [m.note],
@@ -370,9 +406,9 @@ function Message({ m, tail, orders, a }) {
   }
 }
 
-export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct }) {
+export default function Chat({ messages, orders, onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct, onOpenCatalog }) {
   const ref = useRef(null);
-  const a = { onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct };
+  const a = { onAct, onOpenFlow, onOpenPay, onOpenList, onOpenCart, onOpenProduct, onOpenCatalog };
 
   // Scroll only the chat itself. scrollIntoView would also scroll the 3D layer's ancestors.
   useEffect(() => {

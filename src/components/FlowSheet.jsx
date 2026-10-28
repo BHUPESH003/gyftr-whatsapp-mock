@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { MODE_LABEL, brandById, fmt, payModeOptions, priceOrder } from '../data';
+import { MODE_LABEL, OFFERS, brandById, fmt, itemsSubtotal, offerValue, offersForItems, payModeOptions, priceOrder, promoValue, validatePromo, eligibleSubtotal } from '../data';
 import BrandArt from './BrandArt';
 import { ChevronDown, ChevronLeft, Close, Dots } from './icons';
 
-const TITLES = ['Your cart', 'Payment', 'Review order'];
+const TITLES = ['Your cart', 'Coupons & offers', 'Payment', 'Review order'];
+const METHOD_NAME = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking' };
 
 function Field({ label, error, children }) {
   return (
@@ -19,7 +20,7 @@ function Field({ label, error, children }) {
  * A WhatsApp Flow. Uses the components Flows really have: heading, body text,
  * radio buttons, dropdown, opt-in checkbox, text inputs and a footer button.
  */
-export default function FlowSheet({ items, promo, points, onClose, onSubmit }) {
+export default function FlowSheet({ items, promo: startPromo, points, onClose, onSubmit }) {
   const [step, setStep] = useState(0);
   const [gift, setGift] = useState(false);
   const [name, setName] = useState('');
@@ -28,11 +29,28 @@ export default function FlowSheet({ items, promo, points, onClose, onSubmit }) {
   const [payMode, setPayMode] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
 
-  // Coupons are chosen later, on the payment page. Only an offer from a campaign arrives applied.
+  const [picked, setPicked] = useState(startPromo || null);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [method, setMethod] = useState(null);
+
+  const subtotal = itemsSubtotal(items);
+  const offers = offersForItems(items);
+  // A selected coupon only counts while the cart meets its minimum
+  const promo = picked && eligibleSubtotal(picked, items) >= (picked.min || 0) ? picked : null;
   const base = priceOrder({ items, promo, payMode: 'online', points });
   const options = payModeOptions(base.total, points);
   const mode = options.find((o) => o.id === payMode && o.ok) ? payMode : null;
   const price = priceOrder({ items, promo, payMode: mode || 'online', points });
+  const needMethod = Boolean(mode) && price.onlineDue > 0;
+  const chosen = needMethod ? OFFERS.find((o) => o.method === method) : null;
+  const methodValue = chosen ? offerValue(chosen, price.onlineDue) : 0;
+
+  const pickOffer = (p) => {
+    setPicked(p);
+    setCode('');
+    setCodeError('');
+  };
 
   const nameOk = name.trim().length > 1;
   const phoneOk = /^[6-9]\d{9}$/.test(phone);
@@ -43,17 +61,27 @@ export default function FlowSheet({ items, promo, points, onClose, onSubmit }) {
       setShowErrors(true);
       return detailsOk ? setStep(1) : undefined;
     }
-    if (step === 1) return mode ? setStep(2) : undefined;
+    if (step === 1) {
+      if (code.trim()) {
+        const r = validatePromo(code, items);
+        if (!r.ok) return setCodeError(r.error);
+        setPicked(r.promo);
+        setCode('');
+      }
+      return setStep(2);
+    }
+    if (step === 2) return mode && (!needMethod || method) ? setStep(3) : undefined;
     return onSubmit({
       items,
       gift: gift ? { name: name.trim(), phone } : null,
       message: gift ? message.trim() : '',
       payMode: mode,
+      payMethod: needMethod ? method : null,
       promo,
     });
   };
   const back = () => (step === 0 ? onClose() : setStep(step - 1));
-  const disabled = step === 1 && !mode;
+  const disabled = step === 2 && (!mode || (needMethod && !method));
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -85,7 +113,6 @@ export default function FlowSheet({ items, promo, points, onClose, onSubmit }) {
                 );
               })}
               {promo && <p className="cap good">{promo.code} applied: {promo.label}</p>}
-              <p className="cap">Coupons and offers are on the payment page.</p>
 
               <label className="optin">
                 <input type="checkbox" checked={gift} onChange={(e) => setGift(e.target.checked)} />
@@ -122,6 +149,44 @@ export default function FlowSheet({ items, promo, points, onClose, onSubmit }) {
 
           {step === 1 && (
             <>
+              <h2>Coupons &amp; offers</h2>
+              <p className="cap">Cart total {fmt(subtotal)}</p>
+              <div className="group" role="radiogroup" aria-label="Offers">
+                <button className="opt" role="radio" aria-checked={!promo} onClick={() => pickOffer(null)}>
+                  <span className="opt-txt"><b>No offer</b></span>
+                  <span className={'radio ' + (!promo ? 'on' : '')} />
+                </button>
+                {offers.map((o) => {
+                  const sub = eligibleSubtotal(o, items);
+                  const ok = sub >= (o.min || 0);
+                  return (
+                    <button key={o.code} className="opt" role="radio" aria-checked={promo?.code === o.code} disabled={!ok} onClick={() => pickOffer(o)}>
+                      <span className="opt-txt">
+                        <b>{o.code}: {o.label}</b>
+                        <small>{ok ? o.note : `Add ${fmt(o.min - sub)} more to use this`}</small>
+                      </span>
+                      <span className={'radio ' + (promo?.code === o.code ? 'on' : '')} />
+                    </button>
+                  );
+                })}
+              </div>
+              <Field label="Promo code" error={codeError}>
+                <input
+                  value={code}
+                  onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeError(''); }}
+                  placeholder="Have a code? Enter it here"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                />
+              </Field>
+              <p className="cap">
+                {promo ? `${promo.code} applied, you save ${fmt(promoValue(promo, items))}.` : 'A code you enter is checked when you tap Continue.'}
+              </p>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
               <h2>How do you want to pay?</h2>
               <p className="cap">Total {fmt(base.total)}</p>
               <div className="group" role="radiogroup" aria-label="Payment mode">
@@ -142,13 +207,32 @@ export default function FlowSheet({ items, promo, points, onClose, onSubmit }) {
                   </button>
                 ))}
               </div>
+              {needMethod && (
+                <div className="group" role="radiogroup" aria-label="Payment method">
+                  <div className="group-label">Pay {fmt(price.onlineDue)} using</div>
+                  {OFFERS.map((o) => {
+                    const v = offerValue(o, price.onlineDue);
+                    return (
+                      <button key={o.id} className="opt" role="radio" aria-checked={o.method === method} onClick={() => setMethod(o.method)}>
+                        <span className="opt-txt">
+                          <b>{o.label}</b>
+                          <small className={v ? 'good' : ''}>
+                            {v ? `${o.title}. You save ${fmt(v)}` : `${o.title}. Add ${fmt(o.min - price.onlineDue)} more to unlock`}
+                          </small>
+                        </span>
+                        <span className={'radio ' + (o.method === method ? 'on' : '')} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <p className="cap">
-                Online payments open a page with all offers. Points need an OTP in the chat.
+                You will get an order message in the chat to review and pay. Points need an OTP in the chat.
               </p>
             </>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <>
               <h2>Review your order</h2>
               <div className="review">
@@ -160,7 +244,9 @@ export default function FlowSheet({ items, promo, points, onClose, onSubmit }) {
                 <Row k="Payment" v={MODE_LABEL[mode]} />
                 {price.promoDiscount > 0 && <Row k={`Offer ${promo.code}`} v={'-' + fmt(price.promoDiscount)} good />}
                 {price.pointsUsed > 0 && <Row k="Points used" v={fmt(price.pointsUsed)} />}
-                {price.onlineDue > 0 && <Row k="To pay online" v={fmt(price.onlineDue)} />}
+                {chosen && <Row k="Pay via" v={METHOD_NAME[chosen.method]} />}
+                {methodValue > 0 && <Row k={chosen.kind === 'cashback' ? 'Cashback later' : `${chosen.label} offer`} v={(chosen.kind === 'cashback' ? '' : '-') + fmt(methodValue)} good />}
+                {price.onlineDue > 0 && <Row k="To pay online" v={fmt(chosen?.kind === 'instant' ? price.onlineDue - methodValue : price.onlineDue)} />}
                 <div className="review-total"><span>Total</span><b>{fmt(price.total)}</b></div>
               </div>
             </>
@@ -169,7 +255,7 @@ export default function FlowSheet({ items, promo, points, onClose, onSubmit }) {
 
         <div className="sheet-foot">
           <button className="wa-primary" onClick={next} disabled={disabled}>
-            {step === 2 ? 'Confirm order' : 'Continue'}
+            {step === 3 ? 'Confirm order' : 'Continue'}
           </button>
           <p className="managed">Managed by the business. <span>Learn more</span></p>
         </div>

@@ -17,6 +17,11 @@ import {
   addItem,
   itemCount,
   itemsSubtotal,
+  methodOffer,
+  CUSTOM_MAX,
+  CUSTOM_MIN,
+  WEB_CART,
+  customAmountError,
   lineItems,
   offersForItems,
   orderTitle,
@@ -174,22 +179,37 @@ export function useBot({ entry, mode, startPoints }) {
   };
 
   // ---------- browsing ----------
+  const categoryList = (text) => ({
+    kind: 'list',
+    title: 'Categories',
+    text,
+    rows: CATEGORIES.map((c) => ({ id: 'cat:' + c.id, label: c.label, icon: c.icon })),
+  });
+  // A catalog message opens WhatsApp's catalog view. With items it is a multi-product message.
+  const catalogMsg = (text, items) => ({ kind: 'catalog', text, items });
+
   const buyIntro = () => {
     st.current.step = null;
     say(
       { kind: 'carousel', text: 'Here are some popular brands:', cards: BRANDS.slice(0, 6) },
-      {
-        kind: 'list',
-        title: 'Categories',
-        text: 'Or choose a category:',
-        rows: CATEGORIES.map((c) => ({ id: 'cat:' + c.id, label: c.label, icon: c.icon })),
-      }
+      catalogMsg('Want to see everything? Browse the full catalogue.'),
+      categoryList('Or choose a category:')
     );
   };
 
   const showCategory = (catId) => {
     const c = CATEGORIES.find((x) => x.id === catId);
-    say({ kind: 'carousel', text: `Popular brands in ${c.label}:`, cards: BRANDS.filter((b) => b.cat === catId) });
+    say(
+      { kind: 'carousel', text: `Popular brands in ${c.label}:`, cards: BRANDS.filter((b) => b.cat === catId) },
+      {
+        kind: 'buttons',
+        text: 'Not what you are looking for?',
+        buttons: [
+          { id: 'cats', label: 'Change category' },
+          { id: 'catalog', label: 'Browse catalogue' },
+        ],
+      }
+    );
   };
 
   // A carousel button can only send a quick reply, and a Flow can only be opened
@@ -224,17 +244,44 @@ export function useBot({ entry, mode, startPoints }) {
     setCart(items);
   };
 
-  const addToCart = (brandId, denom, qty = 1) => {
-    const items = addItem(st.current.cart || [], { brandId, denom, qty });
+  // The customer sent a cart: add what they sent and confirm with the whole cart.
+  const addItemsToCart = (sent, intro = 'Hooray! 🎉 The product has been added to your cart.') => {
+    const items = sent.reduce(addItem, st.current.cart || []);
     putCart(items);
-    addMsg({ from: 'user', kind: 'cartSent', items });
+    addMsg({ from: 'user', kind: 'cartSent', items: sent });
     const p = promoFor(items);
     say({
       kind: 'cartAdded',
-      text: `Hooray! 🎉 The product has been added to your cart.\n\n${cartText(items)}${p ? `\nOffer ${p.code} will be applied at checkout.` : ''}`,
+      text: `${intro}\n\n${cartText(items)}${p ? `\nOffer ${p.code} will be applied at checkout.` : ''}`,
       buttons: [{ id: 'buy', label: 'Continue shopping' }],
     });
   };
+  const addToCart = (brandId, denom, qty = 1) => addItemsToCart([{ brandId, denom, qty }]);
+
+  // ---------- abandoned cart ----------
+  // The cart saved from the app or website, sent as a marketing template message.
+  const abandonedMsg = () => ({
+    kind: 'abandoned',
+    items: WEB_CART,
+    buttons: [
+      { id: 'resume', label: 'Complete my order' },
+      { id: 'webcat', label: 'Show items in catalogue' },
+    ],
+    delay: 300,
+  });
+  // Option 1: we load the saved cart into the bot cart ourselves.
+  const resumeCart = () => {
+    putCart(WEB_CART);
+    const p = promoFor(WEB_CART);
+    say({
+      kind: 'cartAdded',
+      text: `Welcome back! 🛒 Your cart is ready.\n\n${cartText(WEB_CART)}${p ? `\nOffer ${p.code} will be applied at checkout.` : ''}`,
+      buttons: [{ id: 'buy', label: 'Add more vouchers' }],
+    });
+  };
+  // Option 2: a catalog with only those items; the customer adds them to a WhatsApp cart and sends it.
+  const showWebCatalog = () =>
+    say(catalogMsg('Here are the items you picked on the Gyftr app. Add them to your cart and send it to us.', WEB_CART));
 
   const claimOffer = () => {
     st.current.promo = PROMO;
@@ -264,6 +311,7 @@ export function useBot({ entry, mode, startPoints }) {
       payMode: d.payMode,
       promo: d.promo,
       ...price,
+      ...(d.payMethod ? methodOffer(d.payMethod, price.onlineDue) : {}),
       status: 'pending_payment',
       date: today(),
       codes: [],
@@ -283,7 +331,7 @@ export function useBot({ entry, mode, startPoints }) {
     });
     const o = createOrder(d);
     st.current.draft.orderId = o.id;
-    const payLabel = o.pointsUsed > 0 ? (o.onlineDue > 0 ? 'Continue to pay' : 'Pay with points') : 'Pay now';
+    const payLabel = o.pointsUsed > 0 ? (o.onlineDue > 0 ? 'Continue to pay' : 'Pay with points') : 'Review and Pay';
     say({
       kind: 'order',
       orderId: o.id,
@@ -301,14 +349,14 @@ export function useBot({ entry, mode, startPoints }) {
       ? {
           kind: 'cta',
           orderId: o.id,
-          text: `Pay ${fmt(o.onlineDue)} securely. You will see all payment offers on this page.\nThe link expires in 30 minutes:`,
+          text: `Review your order and pay ${fmt(o.payable ?? o.onlineDue)} securely.\nThe link expires in 30 minutes:`,
           linkText: `pay.gyftr.example/o/${o.id}`,
         }
       : {
           kind: 'cta',
           orderId: o.id,
-          text: `Pay ${fmt(o.onlineDue)} securely. You will see all payment offers on the next page.\nThe link expires in 30 minutes.`,
-          label: 'View offers and pay',
+          text: `Review your order and pay ${fmt(o.payable ?? o.onlineDue)} securely${o.payMethod ? ` by ${{ upi: 'UPI', card: 'card', netbanking: 'netbanking' }[o.payMethod]}` : ''}.\nThe link expires in 30 minutes.`,
+          label: 'Review and Pay',
         };
 
   const startPayment = (id) => {
@@ -459,14 +507,6 @@ export function useBot({ entry, mode, startPoints }) {
   const openPay = (orderId) => setOverlay({ type: 'pay', orderId });
   const closeOverlay = () => setOverlay(null);
 
-  // Coupons live on the payment page: re-price an unpaid order when one is applied or removed.
-  const applyPromo = (orderId, promo) => {
-    const o = findOrder(orderId);
-    if (!o || o.status !== 'pending_payment' || o.pointsPaid) return;
-    const price = priceOrder({ items: lineItems(o), promo, payMode: 'online', points: 0 });
-    const pointsUsed = o.payMode === 'points' ? price.total : o.payMode === 'split' ? Math.min(o.pointsUsed, price.total) : 0;
-    patchOrder(orderId, { promo, promoDiscount: price.promoDiscount, total: price.total, pointsUsed, onlineDue: price.total - pointsUsed });
-  };
 
   // ---------- menu mode purchase steps ----------
   const menuBuy = () => {
@@ -480,10 +520,10 @@ export function useBot({ entry, mode, startPoints }) {
     const c = CATEGORIES.find((x) => x.id === catId);
     const list = BRANDS.filter((b) => b.cat === catId);
     st.current.draft.brandList = list.map((b) => b.id);
-    ask('menu_brand', `Brands in ${c.label}:\n${list.map((b, i) => `${i + 1}. ${b.name}`).join('\n')}`);
+    ask('menu_brand', `Brands in ${c.label}:\n${list.map((b, i) => `${i + 1}. ${b.name}`).join('\n')}\n\nReply C to change category.`);
   };
   const askDenom = () =>
-    ask('menu_denom', `Choose an amount:\n${DENOMS.map((d, i) => `${i + 1}. ${fmt(d)}`).join('\n')}`);
+    ask('menu_denom', `Choose an amount:\n${DENOMS.map((d, i) => `${i + 1}. ${fmt(d)}`).join('\n')}\n${DENOMS.length + 1}. Other amount`);
   const askQty = () => ask('menu_qty', 'How many vouchers? Reply with a number from 1 to 10.');
   const askRecipient = () => ask('menu_recipient', 'Who is this for?\n1. Me\n2. Someone else (gift)');
   const activePromo = (d) => d.promo || promoFor(st.current.cart || []);
@@ -545,6 +585,14 @@ export function useBot({ entry, mode, startPoints }) {
         if (n === 2) return showOrdersList();
         if (n === 3) return showBalance();
         return bad();
+      case 'menu_abandoned':
+        if (n === 1) {
+          putCart(WEB_CART);
+          say({ kind: 'text', text: `Your cart is ready 🛒\n${cartText(WEB_CART)}` });
+          return ask('menu_more', '1. Add another voucher\n2. Checkout');
+        }
+        if (n === 2) return mainMenu(false);
+        return bad();
       case 'menu_claim':
         if (n === 1) return claimOffer();
         return bad();
@@ -553,12 +601,20 @@ export function useBot({ entry, mode, startPoints }) {
         return c ? menuBrands(c.id) : bad();
       }
       case 'menu_brand': {
+        if (/^c$/i.test(t)) return menuBuy();
         const id = s.draft.brandList?.[n - 1];
         if (!id) return bad();
         s.draft.brandId = id;
         return askDenom();
       }
+      case 'menu_custom': {
+        const err = customAmountError(t.replace(/[₹,\s]/g, ''));
+        if (err) return say({ kind: 'text', text: `${err}.` });
+        s.draft.denom = Number(t.replace(/[₹,\s]/g, ''));
+        return askQty();
+      }
       case 'menu_denom': {
+        if (n === DENOMS.length + 1) return ask('menu_custom', `Type the amount, from ${fmt(CUSTOM_MIN)} to ${fmt(CUSTOM_MAX)}.`);
         const d = DENOMS[n - 1];
         if (!d) return bad();
         s.draft.denom = d;
@@ -649,6 +705,14 @@ export function useBot({ entry, mode, startPoints }) {
         return showBalance();
       case 'cat':
         return showCategory(v);
+      case 'cats':
+        return say(categoryList('Choose a category:'));
+      case 'catalog':
+        return say(catalogMsg('Browse the full Gyftr catalogue.'));
+      case 'resume':
+        return resumeCart();
+      case 'webcat':
+        return showWebCatalog();
       case 'view':
         return showBrand(v);
       case 'claim':
@@ -697,7 +761,14 @@ export function useBot({ entry, mode, startPoints }) {
     setOrders(SEED_ORDERS);
     st.current = { step: null, lastPrompt: '', draft: {}, promo: null, otpTries: 0, cart: null };
 
-    if (cfg.current.entry === 'marketing') {
+    if (cfg.current.entry === 'abandoned') {
+      if (isMenu()) {
+        const lines = WEB_CART.map((i) => `${itemLabel(i)}`).join('\n');
+        ask('menu_abandoned', `🛒 You left these in your Gyftr cart:\n${lines}\nTotal: ${fmt(itemsSubtotal(WEB_CART))}\n\n1. Complete my order\n2. Main menu`);
+      } else {
+        say(abandonedMsg());
+      }
+    } else if (cfg.current.entry === 'marketing') {
       if (isMenu()) {
         ask('menu_claim', `🎉 Gift smarter with Gyftr!\nGet ${PROMO.label} on ${brandById(PROMO.brandId).name} vouchers. Valid till 31 Oct.\n\nReply 1 to claim the offer.`);
       } else {
@@ -729,7 +800,7 @@ export function useBot({ entry, mode, startPoints }) {
     act,
     onText,
     openFlow,
-    applyPromo,
+    addItemsToCart,
     addToCart,
     setCartItems: (items) => putCart(items.length ? items : null),
     openPay,
