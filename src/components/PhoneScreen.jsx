@@ -33,6 +33,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
   // The customer's own WhatsApp cart, built in the catalogue. The bot cart is separate and lives in messages.
   const [wa, setWa] = useState([]);
   const [waOpen, setWaOpen] = useState(false);
+  const [botCartOpen, setBotCartOpen] = useState(false);
 
   const changeWa = (it, d) =>
     setWa((w) => {
@@ -114,8 +115,23 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
           }}
         />
       )}
+      {bot.cart && !catalog && (
+        <button className="fab-cart" onClick={() => setBotCartOpen(true)} aria-label={`Cart, ${itemCount(bot.cart)} items`}>
+          <CartIcon size={24} />
+          <span className="fab-badge">{itemCount(bot.cart)}</span>
+        </button>
+      )}
+      {botCartOpen && bot.cart && (
+        <CartSheet
+          items={bot.cart}
+          sendLabel="Place My Order"
+          onChange={(items) => { bot.setCartItems(items); if (!items.length) setBotCartOpen(false); }}
+          onSend={() => { setBotCartOpen(false); bot.openFlow(); }}
+          onClose={() => setBotCartOpen(false)}
+        />
+      )}
       {wa.length > 0 && !catalog && (
-        <button className="fab-cart" onClick={() => setWaOpen(true)} aria-label={`Cart, ${itemCount(wa)} items`}>
+        <button className="fab-cart wa" onClick={() => setWaOpen(true)} aria-label={`WhatsApp cart, ${itemCount(wa)} items`}>
           <CartIcon size={24} />
           <span className="fab-badge">{itemCount(wa)}</span>
         </button>

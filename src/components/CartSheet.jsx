@@ -6,7 +6,7 @@ import { Close } from './icons';
  * WhatsApp's cart. From "View sent cart" it is read only. For the customer's own cart
  * (onSend given) quantities can be changed and the cart is sent to the business.
  */
-export default function CartSheet({ items, onChange, onSend, onClose }) {
+export default function CartSheet({ items, onChange, onSend, sendLabel = 'Send cart', onClose }) {
   const edit = Boolean(onSend);
   const setQty = (i, d) => onChange(items.map((x, k) => (k === i ? { ...x, qty: Math.min(10, x.qty + d) } : x)).filter((x) => x.qty > 0));
   return (
@@ -43,7 +43,7 @@ export default function CartSheet({ items, onChange, onSend, onClose }) {
         </div>
         {edit && (
           <div className="sheet-foot">
-            <button className="wa-primary" onClick={onSend}>Send cart</button>
+            <button className="wa-primary" onClick={onSend}>{sendLabel}</button>
           </div>
         )}
       </div>

@@ -50,6 +50,7 @@ export function useBot({ entry, mode, startPoints }) {
   const [points, setPoints] = useState(startPoints);
   const [orders, setOrders] = useState(SEED_ORDERS);
   const [overlay, setOverlay] = useState(null);
+  const [cart, setCart] = useState(null); // the bot cart, shown by the floating cart icon
 
   const sess = useRef(0);
   const queue = useRef(Promise.resolve());
@@ -241,6 +242,7 @@ export function useBot({ entry, mode, startPoints }) {
 
   const putCart = (items) => {
     st.current.cart = items;
+    setCart(items);
   };
 
   // The customer sent a cart: add what they sent and confirm with the whole cart.
@@ -756,6 +758,7 @@ export function useBot({ entry, mode, startPoints }) {
     setMessages([]);
     setTyping(false);
     setOverlay(null);
+    setCart(null);
     live.current = { points: startPoints, orders: SEED_ORDERS };
     setPoints(startPoints);
     setOrders(SEED_ORDERS);
@@ -796,9 +799,11 @@ export function useBot({ entry, mode, startPoints }) {
     points,
     orders,
     overlay,
+    cart,
     act,
     onText,
     openFlow,
+    setCartItems: (items) => putCart(items.length ? items : null),
     startPayment,
     addItemsToCart,
     addToCart,
