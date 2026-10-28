@@ -350,7 +350,10 @@ export function useBot({ entry, mode, startPoints }) {
       title: 'Buy Voucher',
       lines: [...d.items.map(itemLabel), `Payment: ${MODE_LABEL[d.payMode]}`],
     });
-    const o = createOrder(d);
+    sendOrderMsg(createOrder(d));
+  };
+
+  const sendOrderMsg = (o) => {
     st.current.draft.orderId = o.id;
     say({
       kind: 'order',
@@ -358,6 +361,15 @@ export function useBot({ entry, mode, startPoints }) {
       note: 'Held for 30 minutes.',
       label: o.pointsUsed > 0 && o.onlineDue === 0 ? 'Pay with points' : 'Review and pay',
     });
+  };
+
+  // A cart sent from the WhatsApp catalogue is an order. The business answers with the order
+  // details message and Review and pay, so it never touches the bot cart.
+  const receiveWhatsAppCart = (sent) => {
+    addMsg({ from: 'user', kind: 'cartSent', items: sent });
+    const o = createOrder({ items: sent, gift: null, message: '', payMode: 'online', promo: promoFor(sent) });
+    say({ kind: 'text', text: 'Thanks, we got your cart 🛒 Here is your order:', delay: 500 });
+    sendOrderMsg(o);
   };
 
   const ctaMsg = (o) =>
@@ -806,6 +818,7 @@ export function useBot({ entry, mode, startPoints }) {
     setCartItems: (items) => putCart(items.length ? items : null),
     startPayment,
     addItemsToCart,
+    receiveWhatsAppCart,
     addToCart,
     openPay,
     closeOverlay,

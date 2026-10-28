@@ -47,7 +47,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
     setWa([]);
     setWaOpen(false);
     setCatalog(null);
-    bot.addItemsToCart(sent);
+    bot.receiveWhatsAppCart(sent);
   };
 
   const payOrder = bot.overlay?.type === 'pay' ? bot.orders.find((o) => o.id === bot.overlay.orderId) : null;
