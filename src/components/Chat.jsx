@@ -300,13 +300,13 @@ function Message({ m, tail, orders, a }) {
               {m.note}
             </span>
             <Meta m={m} />
+            {order.status === 'pending_payment' && (
+              <div className="od-btns">
+                <button className="od-btn" onClick={() => a.onOpenPay(order.id, 'details')}>View order</button>
+                <button className="od-btn" onClick={() => a.onPay(order.id)}>{m.label}</button>
+              </div>
+            )}
           </div>
-          {order.status === 'pending_payment' && (
-            <div className="od-btns">
-              <button className="od-btn" onClick={() => a.onOpenPay(order.id, 'details')}>View order</button>
-              <button className="od-btn" onClick={() => a.onPay(order.id)}>{m.label}</button>
-            </div>
-          )}
         </div>
       );
     }
