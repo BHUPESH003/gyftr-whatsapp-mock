@@ -302,7 +302,10 @@ function Message({ m, tail, orders, a }) {
             <Meta m={m} />
           </div>
           {order.status === 'pending_payment' && (
-            <button className="od-btn" onClick={() => a.onPay(order.id)}>{m.label}</button>
+            <div className="od-btns">
+              <button className="od-btn" onClick={() => a.onOpenPay(order.id, 'details')}>View order</button>
+              <button className="od-btn" onClick={() => a.onPay(order.id)}>{m.label}</button>
+            </div>
           )}
         </div>
       );

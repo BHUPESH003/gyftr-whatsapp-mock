@@ -359,8 +359,8 @@ export function useBot({ entry, mode, startPoints }) {
     say({
       kind: 'order',
       orderId: o.id,
-      note: 'Held for 30 minutes.',
-      label: o.pointsUsed > 0 && o.onlineDue === 0 ? 'Pay with points' : 'Review and pay',
+      note: 'Please pay within 5 minutes.',
+      label: o.pointsUsed > 0 && o.onlineDue === 0 ? 'Pay with points' : 'Pay now',
     });
   };
 
@@ -517,7 +517,7 @@ export function useBot({ entry, mode, startPoints }) {
     completeOrder(orderId, method, saved);
   };
 
-  const openPay = (orderId) => setOverlay({ type: 'pay', orderId });
+  const openPay = (orderId, view = 'pay') => setOverlay({ type: 'pay', orderId, view });
   const closeOverlay = () => setOverlay(null);
 
 
