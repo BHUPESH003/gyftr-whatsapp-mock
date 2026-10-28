@@ -103,7 +103,7 @@ export function useBot({ entry, mode, startPoints }) {
   const mainMenu = (greet) => {
     const hello = greet ? 'Hi! 👋 Welcome to Gyftr.\n' : '';
     if (isMenu()) {
-      ask('menu_main', `${hello}Reply with a number:\n1. Buy a voucher\n2. Track an order\n3. Check points balance`);
+      ask('menu_main', `${hello}Reply with a number:\n1. Buy a voucher\n2. View previous orders\n3. Check loyalty points balance`);
       return;
     }
     st.current.step = null;
@@ -112,8 +112,8 @@ export function useBot({ entry, mode, startPoints }) {
       text: greet ? `${hello}What would you like to do today?` : 'What would you like to do next?',
       buttons: [
         { id: 'buy', label: 'Buy a voucher' },
-        { id: 'track', label: 'Track order' },
-        { id: 'balance', label: 'Check balance' },
+        { id: 'track', label: 'View previous orders' },
+        { id: 'balance', label: 'Check loyalty points balance' },
       ],
     });
   };
@@ -130,7 +130,7 @@ export function useBot({ entry, mode, startPoints }) {
       points: p,
       buttons: [
         { id: 'buy', label: 'Buy a voucher' },
-        { id: 'track', label: 'Track order' },
+        { id: 'track', label: 'View previous orders' },
       ],
     });
   };
@@ -482,8 +482,8 @@ export function useBot({ entry, mode, startPoints }) {
       text: 'Anything else I can help with?',
       buttons: [
         { id: 'buy', label: 'Buy another' },
-        { id: 'track', label: 'Track order' },
-        { id: 'balance', label: 'Check balance' },
+        { id: 'track', label: 'View previous orders' },
+        { id: 'balance', label: 'Check loyalty points balance' },
       ],
       delay: 900,
     });
