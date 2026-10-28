@@ -30,6 +30,10 @@ import {
   validatePromo,
 } from './data';
 
+const CART_BUTTONS = [
+  { id: 'buy', label: 'Continue shopping' },
+  { id: 'editcart', label: 'Edit cart' },
+];
 const itemLabel = (i) => `${brandById(i.brandId).name}, ${fmt(i.denom)} × ${i.qty}`;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -47,7 +51,6 @@ export function useBot({ entry, mode, startPoints }) {
   const [points, setPoints] = useState(startPoints);
   const [orders, setOrders] = useState(SEED_ORDERS);
   const [overlay, setOverlay] = useState(null);
-  const [cart, setCart] = useState(null); // shown by the floating cart icon
 
   const sess = useRef(0);
   const queue = useRef(Promise.resolve());
@@ -241,7 +244,6 @@ export function useBot({ entry, mode, startPoints }) {
 
   const putCart = (items) => {
     st.current.cart = items;
-    setCart(items);
   };
 
   // The customer sent a cart: add what they sent and confirm with the whole cart.
@@ -253,10 +255,31 @@ export function useBot({ entry, mode, startPoints }) {
     say({
       kind: 'cartAdded',
       text: `${intro}\n\n${cartText(items)}${p ? `\nOffer ${p.code} will be applied at checkout.` : ''}`,
-      buttons: [{ id: 'buy', label: 'Continue shopping' }],
+      buttons: CART_BUTTONS,
     });
   };
   const addToCart = (brandId, denom, qty = 1) => addItemsToCart([{ brandId, denom, qty }]);
+
+  // The bot cart only exists in messages, so editing it is a list of items to remove.
+  const editCart = () => {
+    const items = st.current.cart || [];
+    if (!items.length) return say({ kind: 'text', text: 'Your cart is empty.' });
+    return say({
+      kind: 'list',
+      title: 'Remove an item',
+      text: 'Which item do you want to remove?',
+      rows: items.map((i, k) => ({ id: 'remove:' + k, label: `Remove ${brandById(i.brandId).name}`, sub: `${fmt(i.denom)} × ${i.qty}`, icon: '🗑️' })),
+    });
+  };
+  const removeItem = (k) => {
+    const items = (st.current.cart || []).filter((_, i) => i !== Number(k));
+    putCart(items.length ? items : null);
+    if (!items.length) {
+      say({ kind: 'text', text: 'Your cart is now empty.' });
+      return mainMenu(false);
+    }
+    return say({ kind: 'cartAdded', text: `Removed. Your cart:\n\n${cartText(items)}`, buttons: CART_BUTTONS });
+  };
 
   // ---------- abandoned cart ----------
   // The cart saved from the app or website, sent as a marketing template message.
@@ -276,7 +299,7 @@ export function useBot({ entry, mode, startPoints }) {
     say({
       kind: 'cartAdded',
       text: `Welcome back! 🛒 Your cart is ready.\n\n${cartText(WEB_CART)}${p ? `\nOffer ${p.code} will be applied at checkout.` : ''}`,
-      buttons: [{ id: 'buy', label: 'Add more vouchers' }],
+      buttons: CART_BUTTONS,
     });
   };
   // Option 2: a catalog with only those items; the customer adds them to a WhatsApp cart and sends it.
@@ -702,6 +725,10 @@ export function useBot({ entry, mode, startPoints }) {
         return showBalance();
       case 'cat':
         return showCategory(v);
+      case 'editcart':
+        return editCart();
+      case 'remove':
+        return removeItem(v);
       case 'cats':
         return say(categoryList('Choose a category:'));
       case 'catalog':
@@ -752,7 +779,6 @@ export function useBot({ entry, mode, startPoints }) {
     setMessages([]);
     setTyping(false);
     setOverlay(null);
-    setCart(null);
     live.current = { points: startPoints, orders: SEED_ORDERS };
     setPoints(startPoints);
     setOrders(SEED_ORDERS);
@@ -793,14 +819,12 @@ export function useBot({ entry, mode, startPoints }) {
     points,
     orders,
     overlay,
-    cart,
     act,
     onText,
     openFlow,
     startPayment,
     addItemsToCart,
     addToCart,
-    setCartItems: (items) => putCart(items.length ? items : null),
     openPay,
     closeOverlay,
     onFlowSubmit,

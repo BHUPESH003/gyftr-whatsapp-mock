@@ -179,7 +179,7 @@ function Message({ m, tail, orders, a }) {
             </div>
             <Meta m={m} />
           </div>
-          <WBtn onClick={() => a.onOpenCart({ items: m.items, readOnly: true })}>View sent cart</WBtn>
+          <WBtn onClick={() => a.onOpenCart({ items: m.items })}>View sent cart</WBtn>
         </div>
       );
     }

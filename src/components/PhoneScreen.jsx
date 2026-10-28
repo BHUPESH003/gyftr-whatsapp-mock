@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useBot } from '../useBot';
-import { fmt, itemCount } from '../data';
+import { fmt } from '../data';
 import Chat, { Composer } from './Chat';
 import FlowSheet from './FlowSheet';
 import CartSheet from './CartSheet';
@@ -9,7 +9,7 @@ import ListSheet from './ListSheet';
 import ProductSheet from './ProductSheet';
 import UpiApp from './UpiApp';
 import WebView from './WebView';
-import { BatteryIcon, CartIcon, ChevronLeft, Phone, SignalIcon, Verified, WifiIcon } from './icons';
+import { BatteryIcon, ChevronLeft, Phone, SignalIcon, Verified, WifiIcon } from './icons';
 
 function StatusBar() {
   return (
@@ -28,7 +28,7 @@ function StatusBar() {
 export default function PhoneScreen({ entry, mode, startPoints, device }) {
   const bot = useBot({ entry, mode, startPoints });
   const [list, setList] = useState(null);
-  const [cartOpen, setCartOpen] = useState(null); // { items, readOnly }
+  const [cartOpen, setCartOpen] = useState(null); // { items }
   const [productId, setProductId] = useState(null);
   const [catalog, setCatalog] = useState(null); // { items? }
   const [upiOpen, setUpiOpen] = useState(false);
@@ -77,21 +77,7 @@ export default function PhoneScreen({ entry, mode, startPoints, device }) {
           }}
         />
       )}
-      {bot.cart && (
-        <button className="fab-cart" onClick={() => setCartOpen({ items: bot.cart })} aria-label={`Cart, ${itemCount(bot.cart)} items`}>
-          <CartIcon size={24} />
-          <span className="fab-badge">{itemCount(bot.cart)}</span>
-        </button>
-      )}
-      {cartOpen && (
-        <CartSheet
-          items={cartOpen.readOnly ? cartOpen.items : bot.cart || []}
-          readOnly={cartOpen.readOnly}
-          onChange={(items) => { bot.setCartItems(items); if (!items.length) setCartOpen(null); }}
-          onCheckout={() => { setCartOpen(null); bot.openFlow(); }}
-          onClose={() => setCartOpen(null)}
-        />
-      )}
+      {cartOpen && <CartSheet items={cartOpen.items} onClose={() => setCartOpen(null)} />}
       {catalog && (
         <CatalogSheet
           items={catalog.items}
