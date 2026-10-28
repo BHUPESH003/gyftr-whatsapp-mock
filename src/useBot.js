@@ -249,7 +249,8 @@ export function useBot({ entry, mode, startPoints }) {
   const addItemsToCart = (sent, intro = 'Hooray! 🎉 The product has been added to your cart.') => {
     const items = sent.reduce(addItem, st.current.cart || []);
     putCart(items);
-    addMsg({ from: 'user', kind: 'cartSent', items: sent });
+    // the bot cart is built from a Flow page, so the customer's message is a Flow reply
+    addMsg({ from: 'user', kind: 'flowReply', title: 'Add to cart', lines: sent.map(itemLabel) });
     const p = promoFor(items);
     say({
       kind: 'cartAdded',
@@ -366,9 +367,8 @@ export function useBot({ entry, mode, startPoints }) {
   // A cart sent from the WhatsApp catalogue is an order. The business answers with the order
   // details message and Review and pay, so it never touches the bot cart.
   const receiveWhatsAppCart = (sent) => {
-    addMsg({ from: 'user', kind: 'cartSent', items: sent });
     const o = createOrder({ items: sent, gift: null, message: '', payMode: 'online', promo: promoFor(sent) });
-    say({ kind: 'text', text: 'Thanks, we got your cart 🛒 Here is your order:', delay: 500 });
+    addMsg({ from: 'user', kind: 'cartSent', items: sent, orderId: o.id });
     sendOrderMsg(o);
   };
 

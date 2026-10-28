@@ -173,13 +173,14 @@ function Message({ m, tail, orders, a }) {
             <div className="cart-row">
               <BrandArt brand={brandById(m.items[0].brandId)} logo className="cart-thumb" />
               <div className="cart-info">
+                {m.orderId && <small className="od-no">ORDER #{m.orderId}</small>}
                 <b>🛒 {n} item{n > 1 ? 's' : ''}</b>
                 <span>{fmt(itemsSubtotal(m.items))}.00 (estimated total)</span>
               </div>
             </div>
             <Meta m={m} />
           </div>
-          <WBtn onClick={() => a.onOpenCart({ items: m.items })}>View sent cart</WBtn>
+          <WBtn onClick={() => a.onOpenCart({ items: m.items })}>{m.orderId ? 'View cart' : 'View sent cart'}</WBtn>
         </div>
       );
     }
